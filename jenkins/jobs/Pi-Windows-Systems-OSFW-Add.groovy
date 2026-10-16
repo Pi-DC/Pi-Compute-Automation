@@ -125,7 +125,7 @@ pipeline {
   parameters {
     string(name: 'CLIENT_IP', defaultValue: '', trim: true, description: 'IP address of the client, e.g. 172.20.119.111')
     string(name: 'CLIENT_NAME', defaultValue: '', trim: true, description: 'Optional short name (lowercase, digits, -). Use the same name every time for the same client. Empty = client-&lt;IP with dashes&gt;.')
-    choice(name: 'OS_TYPE', choices: ['Windows-2022', 'Windows-2019'], description: 'Operating system of the client (must match the inventory for a known client)')
+    choice(name: 'OS_TYPE', choices: ['Windows-2022', 'Windows-2019'], description: 'Operating system and major version of the client (must match the inventory for a known client). ')
     string(name: 'CLIENT_USERNAME', defaultValue: '', trim: true, description: 'Required: login user (local or DOMAIN\\user admin for WinRM).')
     password(name: 'CLIENT_PASSWORD', defaultValue: '', description: 'Required: password for that user. Used only while this build runs: never in git, and deleted from Jenkins when the build ends (it is not kept with the build either).')
     text(name: 'RULES_ADD', defaultValue: '', description: 'Firewall rules to OPEN. One rule per line: <code>SOURCE  DESTINATION  PORTS  [tcp|udp]  [comment]</code><br>SOURCE / DESTINATION = <code>any</code>, an IP or a CIDR. PORTS = <code>443</code>, <code>8000-8010</code> or <code>80,443</code>. Protocol defaults to tcp.<br>Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code><br>No rule is added by default. The client\'s rules must allow the Jenkins agent 172.20.119.105 to reach WinRM port 5986 (a new client needs that rule here, e.g. <code>172.20.119.105 any 5986 tcp Jenkins</code>), or the build stops at Plan.')

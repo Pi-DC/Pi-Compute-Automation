@@ -125,7 +125,7 @@ pipeline {
   parameters {
     string(name: 'CLIENT_IP', defaultValue: '', trim: true, description: 'IP address of the client, e.g. 172.20.119.111')
     string(name: 'CLIENT_NAME', defaultValue: '', trim: true, description: 'Optional short name (lowercase, digits, -). Use the same name every time for the same client. Empty = client-&lt;IP with dashes&gt;.')
-    choice(name: 'OS_TYPE', choices: ['Ubuntu-24', 'Ubuntu-22', 'RedHat-9', 'CentOS-7'], description: 'Operating system of the client (must match the inventory for a known client)')
+    choice(name: 'OS_TYPE', choices: ['Ubuntu-24', 'Ubuntu-22', 'Ubuntu-20', 'RedHat-9', 'RedHat-8', 'RedHat-7', 'Rocky-9', 'Rocky-8', 'AlmaLinux-9', 'AlmaLinux-8', 'OracleLinux-9', 'OracleLinux-8', 'OracleLinux-7', 'CentOS-9', 'CentOS-8', 'CentOS-7'], description: 'Operating system and major version of the client (must match the inventory for a known client). CentOS-8 = CentOS Linux 8 or Stream 8, CentOS-9 = CentOS Stream 9.')
     string(name: 'CLIENT_USERNAME', defaultValue: '', trim: true, description: 'Required: login user (SSH user with sudo).')
     password(name: 'CLIENT_PASSWORD', defaultValue: '', description: 'Required: password for that user. Used only while this build runs: never in git, and deleted from Jenkins when the build ends (it is not kept with the build either).')
     string(name: 'SSH_PORT', defaultValue: '', trim: true, description: 'Port the SSH server listens on; Ansible connects here. Empty = keep the client\'s current port (22 for a new client).')

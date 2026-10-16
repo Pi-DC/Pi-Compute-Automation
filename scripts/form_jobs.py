@@ -17,7 +17,8 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 TEMPLATE = os.path.join(ROOT, "jenkins", "firewall-form-template.groovy")
 OUT_DIR = os.path.join(ROOT, "jenkins", "jobs")
 
-OS_CHOICES = {"linux": ["Ubuntu-24", "Ubuntu-22", "RedHat-9", "CentOS-7"], "windows": ["Windows-2022", "Windows-2019"]}
+OS_CHOICES = {"linux": ["Ubuntu-24", "Ubuntu-22", "Ubuntu-20", "RedHat-9", "RedHat-8", "RedHat-7", "Rocky-9", "Rocky-8", "AlmaLinux-9", "AlmaLinux-8", "OracleLinux-9", "OracleLinux-8", "OracleLinux-7", "CentOS-9", "CentOS-8", "CentOS-7"],
+              "windows": ["Windows-2022", "Windows-2019"]}
 
 JOBS = {
     "Pi-Linux-Systems-OSFW-Add": ("linux", "open", "linux-open", "Open firewall ports (add rules) on a Linux client. Adds a new client if it is not known yet."),
@@ -44,7 +45,8 @@ def params(family, action):
          + "Empty = client-&lt;IP with dashes&gt;.", None),
     ]
     if action == "open":
-        p.append(("choice", "OS_TYPE", None, "Operating system of the client (must match the inventory for a known client)", OS_CHOICES[family]))
+        p.append(("choice", "OS_TYPE", None, "Operating system and major version of the client (must match the inventory for a known client). "
+         + ("CentOS-8 = CentOS Linux 8 or Stream 8, CentOS-9 = CentOS Stream 9." if family == "linux" else ""), OS_CHOICES[family]))
     who = "SSH user with sudo" if family == "linux" else "local or DOMAIN\\user admin for WinRM"
     p += [
         ("string", "CLIENT_USERNAME", "", f"Required: login user ({who}).", None),

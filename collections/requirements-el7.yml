@@ -1,6 +1,6 @@
 ---
 # Collections for the older Ansible (ansible-core 2.16, /opt/ansible-el7 on pi-jenkins-agent) that manages
-# CentOS 7 hosts: their Python 2.7 is not supported by ansible-core 2.17 or later.
+# clients whose own Python is older than 3.9 (EL7, EL8, Ubuntu 20.04): see scripts/run-playbook.sh.
 # These are the last versions that still run on ansible-core 2.16. Installed into ./collections-el7 by
 # scripts/run-playbook.sh. Upgrade deliberately, through a PR.
 collections:

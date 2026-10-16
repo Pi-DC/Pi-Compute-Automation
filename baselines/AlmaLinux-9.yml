@@ -1,0 +1,4 @@
+---
+# Day-1 rules for every AlmaLinux 9 host (in addition to its host_vars file).
+# Changing this file changes ALL AlmaLinux-9 hosts. No rule is added by default: keep it empty.
+fw_rules: []
