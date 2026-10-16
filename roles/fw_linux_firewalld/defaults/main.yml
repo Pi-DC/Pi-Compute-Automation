@@ -1,0 +1,3 @@
+---
+# firewalld's main configuration file (a variable only so the edit below can be tested on a copy).
+fw_linux_firewalld_conf: /etc/firewalld/firewalld.conf

@@ -2,6 +2,15 @@
 # firewalld starts with its saved (permanent) rules. Save this host's rules first, with the daemon
 # stopped, so it starts with exactly them (they include Ansible's access, scripts/access_check.py).
 # The default zone's own "ssh" service is closed afterwards by fw_linux_firewalld.
+# See fw_linux_firewalld: off before the start, so firewalld never starts with the insecure option.
+- name: AllowZoneDrifting off, before firewalld starts
+  ansible.builtin.lineinfile:
+    path: /etc/firewalld/firewalld.conf
+    regexp: '^AllowZoneDrifting=(?!no$)'
+    line: AllowZoneDrifting=no
+    backrefs: true
+  when: not fw_service_state.running
+
 - name: This host's rules in the saved configuration, before firewalld starts
   ansible.builtin.shell: |
     rule='{{ fw_firewalld_rich_rule }}'
