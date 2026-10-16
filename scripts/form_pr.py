@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pull request steps of the client-firewall-form job (stages 3, 4 and 6).
+"""Pull request steps of the firewall form jobs (jenkins/jobs/, stages 3, 4 and 6).
 
   form_pr.py open    --branch B --title T --body-file F --reviewers a,b   -> prints the PR number
   form_pr.py check   --pr N --require a,b --message M --merge-sha-file F
