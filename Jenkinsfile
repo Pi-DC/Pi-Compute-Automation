@@ -63,8 +63,9 @@ pipeline {
         archiveArtifacts artifacts: 'plans/**', allowEmptyArchive: true
         script {
           env.FW_HOSTS = fileExists('plans/hosts.txt') ? readFile('plans/hosts.txt').trim().replace('\n', ',') : ''
-          // Commits pushed by the client-firewall form job were approved and applied by that job.
-          def formBuild = sh(returnStdout: true, script: "git log -1 --format=%B | sed -n 's/^Fw-Form-Build: //p'").trim()
+          // Changes from the client-firewall form job (its merge or revert commit, or a form/* PR merged by
+          // hand: trailer on the merged commit HEAD^2) are approved and applied by that job.
+          def formBuild = sh(returnStdout: true, script: "{ git log -1 --format=%B HEAD; git log -1 --format=%B HEAD^2 2>/dev/null || true; } | sed -n 's/^Fw-Form-Build: //p' | head -1").trim()
           if (env.BRANCH_NAME == 'main' && formBuild) {
             echo "Change made by the client-firewall form job (${formBuild}); it approved and applied it there."
             env.FW_HOSTS = ''

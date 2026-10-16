@@ -1,0 +1,23 @@
+---
+# Can Ansible log in with the given details? Linux: SSH + sudo to root. Windows: WinRM.
+# Changes nothing. Run only with -l <hosts>; the client-firewall-form job does this (stage 2).
+- name: Login check
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Log in over SSH and become root (Linux)
+      ansible.builtin.command: id -un
+      register: fw_login_linux
+      changed_when: false
+      check_mode: false
+      when: "'windows' not in group_names"
+
+    - name: Log in over WinRM (Windows)
+      ansible.windows.win_ping:
+      when: "'windows' in group_names"
+
+    - name: Login result
+      ansible.builtin.debug:
+        msg: >-
+          Login OK: {{ inventory_hostname }} ({{ ansible_host }})
+          {{ ('as ' ~ fw_login_linux.stdout ~ ' via sudo') if fw_login_linux is not skipped else 'over WinRM' }}
