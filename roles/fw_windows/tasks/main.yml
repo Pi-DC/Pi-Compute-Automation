@@ -1,0 +1,44 @@
+---
+# Order: protected management rules -> adds -> enable + inbound block -> removes
+# Every rule Ansible creates is named ANS-..., so removals never touch built-in or manual rules.
+- name: Protected management rules (never removable by a PR)
+  community.windows.win_firewall_rule:
+    name: "{{ item.name }}"
+    localport: "{{ item.port }}"
+    remoteip: "{{ item.src }}"
+    protocol: tcp
+    direction: in
+    action: allow
+    profiles: [domain, private, public]
+    enabled: true
+    state: present
+  loop:
+    - { name: ANS-MGMT-WINRM, port: 5986, src: "{{ fw_agent_ip }}" }
+    - { name: ANS-MGMT-RDP, port: 3389, src: "{{ fw_admin_subnet }}" }
+
+- name: Add rules
+  community.windows.win_firewall_rule:
+    name: "ANS-{{ item.proto | upper }}-{{ item.port }}-{{ item.src | replace('/', '_') }}"
+    description: "{{ item.comment }}"
+    localport: "{{ item.port }}"
+    protocol: "{{ item.proto }}"
+    remoteip: "{{ item.src }}"
+    direction: in
+    action: allow
+    profiles: [domain, private, public]
+    enabled: true
+    state: present
+  loop: "{{ fw_add | default([]) }}"
+
+- name: Firewall on for all profiles, inbound block
+  ansible.windows.win_firewall:
+    profiles: [Domain, Private, Public]
+    state: enabled
+    inbound_action: block
+    outbound_action: allow
+
+- name: Remove rules
+  community.windows.win_firewall_rule:
+    name: "ANS-{{ item.proto | upper }}-{{ item.port }}-{{ item.src | replace('/', '_') }}"
+    state: absent
+  loop: "{{ fw_remove | default([]) }}"

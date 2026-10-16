@@ -1,0 +1,7 @@
+---
+# Management access that every client firewall always allows (protected rules).
+fw_agent_ip: 172.20.119.105          # pi-jenkins-agent
+fw_admin_subnet: 172.20.119.0/24     # CHANGE to the subnet your admins connect from
+fw_mgmt_sources:
+  - "{{ fw_agent_ip }}"
+  - "{{ fw_admin_subnet }}"

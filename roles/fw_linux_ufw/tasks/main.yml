@@ -1,0 +1,41 @@
+---
+# Order: protected management rule -> adds -> default policy + enable -> removes
+- name: Protected management SSH (never removable by a PR)
+  community.general.ufw:
+    rule: allow
+    proto: tcp
+    port: "22"
+    from_ip: "{{ item }}"
+    comment: "managed-by-ansible: MGMT-SSH"
+  loop: "{{ fw_mgmt_sources }}"
+
+- name: Add rules
+  community.general.ufw:
+    rule: allow
+    proto: "{{ item.proto }}"
+    port: "{{ item.port | string | replace('-', ':') }}"
+    from_ip: "{{ item.src }}"
+    comment: "managed-by-ansible: {{ item.comment }}"
+  loop: "{{ fw_add | default([]) }}"
+
+- name: Default policies
+  community.general.ufw:
+    direction: "{{ item.d }}"
+    policy: "{{ item.p }}"
+  loop:
+    - { d: incoming, p: deny }
+    - { d: outgoing, p: allow }
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+    logging: "low"
+
+- name: Remove rules
+  community.general.ufw:
+    rule: allow
+    proto: "{{ item.proto }}"
+    port: "{{ item.port | string | replace('-', ':') }}"
+    from_ip: "{{ item.src }}"
+    delete: true
+  loop: "{{ fw_remove | default([]) }}"

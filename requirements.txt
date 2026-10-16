@@ -1,0 +1,6 @@
+# Installed on pi-jenkins-agent in /opt/ansible (python3 -m venv /opt/ansible)
+ansible-core==2.21.5
+pywinrm
+pyyaml
+ansible-lint
+yamllint

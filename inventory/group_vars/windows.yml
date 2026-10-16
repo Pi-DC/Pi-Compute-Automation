@@ -1,0 +1,7 @@
+---
+ansible_connection: winrm
+ansible_port: 5986
+ansible_winrm_transport: ntlm
+ansible_winrm_server_cert_validation: ignore   # use 'validate' once clients have an internal CA certificate
+ansible_user: "{{ lookup('env', 'WIN_USER') }}"
+ansible_password: "{{ lookup('env', 'WIN_PASS') }}"

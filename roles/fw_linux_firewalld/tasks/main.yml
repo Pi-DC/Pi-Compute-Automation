@@ -1,0 +1,41 @@
+---
+# Order: protected management rule -> close default open services -> adds -> removes
+- name: Ensure firewalld is running
+  ansible.builtin.systemd:
+    name: firewalld
+    state: started
+    enabled: true
+
+- name: Protected management SSH (never removable by a PR)
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ item }}" port port="22" protocol="tcp" accept'
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ fw_mgmt_sources }}"
+
+- name: Close services the default zone opens to everyone
+  ansible.posix.firewalld:
+    service: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: disabled
+  loop: [ssh, cockpit]
+
+- name: Add rules
+  ansible.posix.firewalld:
+    rich_rule: >-
+      rule family="ipv4"{{ (' source address="' ~ item.src ~ '"') if item.src != 'any' else '' }} port port="{{ item.port }}" protocol="{{ item.proto }}" accept
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ fw_add | default([]) }}"
+
+- name: Remove rules
+  ansible.posix.firewalld:
+    rich_rule: >-
+      rule family="ipv4"{{ (' source address="' ~ item.src ~ '"') if item.src != 'any' else '' }} port port="{{ item.port }}" protocol="{{ item.proto }}" accept
+    permanent: true
+    immediate: true
+    state: disabled
+  loop: "{{ fw_remove | default([]) }}"

@@ -1,0 +1,4 @@
+---
+# Day-1 rules for every RHEL 9 host. For Rocky Linux 9 create Rocky-9.yml with the same format.
+# Changing this file changes ALL RHEL 9 hosts. Keep it small.
+fw_rules: []

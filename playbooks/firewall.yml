@@ -1,0 +1,27 @@
+---
+# Applies plans/<host>.yml (fw_add / fw_remove) built by scripts/plan.sh.
+# Run only with -l <changed hosts>; Jenkins does this.
+- name: Apply firewall plan
+  hosts: all
+  gather_facts: true
+  serial: "{{ fw_serial | default('25%') }}"
+  max_fail_percentage: 0
+  pre_tasks:
+    - name: Load this host's plan
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../plans/{{ inventory_hostname }}.yml"
+
+    - name: Inventory os_baseline must match the real OS
+      ansible.builtin.assert:
+        that: >-
+          (ansible_os_family == 'Windows' and os_baseline.split('-')[1] in ansible_distribution)
+          or os_baseline == ansible_distribution ~ '-' ~ ansible_distribution_major_version
+        fail_msg: "os_baseline {{ os_baseline }} does not match {{ ansible_distribution }} {{ ansible_distribution_major_version }}"
+
+  roles:
+    - role: fw_linux_ufw
+      when: ansible_os_family == 'Debian'
+    - role: fw_linux_firewalld
+      when: ansible_os_family == 'RedHat'
+    - role: fw_windows
+      when: ansible_os_family == 'Windows'

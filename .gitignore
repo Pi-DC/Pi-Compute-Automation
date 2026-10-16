@@ -1,0 +1,6 @@
+plans/
+prev/
+collections/ansible_collections/
+apply.log
+*.retry
+__pycache__/
