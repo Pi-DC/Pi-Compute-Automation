@@ -8,7 +8,7 @@ Oracle Linux, CentOS). Windows: Defender Firewall.
 1. Editor creates a branch, edits `host_vars/<host>.yml`, opens a Pull Request.
 2. Jenkins builds the PR: lint, plan, firewall status, dry run. The plan shows exactly which rules are added/removed
    on which hosts; **Firewall status** shows whether each of those hosts has its firewall enabled and running.
-3. Admin reviews and **Approves** the PR in GitHub. Jenkins job `Pi-PR-Auto-Merge` merges it within about a minute
+3. Admin reviews and **Approves** the PR in GitHub. Jenkins job `Pi-PR-Auto-Merge` (started for this PR when its build passes) merges it within about 10 seconds
    once its PR build is green and it is approved on its final commit (the admin can also merge it by hand).
    The approver cannot be the PR author (GitHub does not allow approving your own PR).
 4. Jenkins builds `main`: checks the commit came from a PR the admin approved, then waits.
@@ -55,7 +55,7 @@ The `main` build skips commits with the trailer `Fw-Form-Build:`, because the fo
 | `inventory/group_vars/all.yml` | Jenkins agent IP (whose access `scripts/access_check.py` checks); no default rules |
 | `scripts/plan.sh`, `scripts/fw_diff.py` | Work out adds/removes since the last deploy |
 | `scripts/approval_check.py` | Refuses to apply unapproved changes |
-| `scripts/auto_merge.py`, `jenkins/pr-auto-merge.Jenkinsfile` | Job `Pi-PR-Auto-Merge`: merges green + approved PRs |
+| `scripts/auto_merge.py`, `jenkins/pr-auto-merge.Jenkinsfile` | Job `Pi-PR-Auto-Merge`: one run per green PR, merges it right after the approval |
 | `scripts/form_change.py` | Writes a Jenkins form request into the inventory and host_vars |
 | `scripts/form_pr.py`, `scripts/rollback_plan.sh` | Form job: PR, reviewers, merge; old rules after a failed apply |
 | `playbooks/login_check.yml` | Form job Stage 2: can Ansible log in? Changes nothing |

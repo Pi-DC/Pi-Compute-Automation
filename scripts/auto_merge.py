@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Merge open pull requests that are ready. Run by the Jenkins job Pi-PR-Auto-Merge every minute.
+"""Rules for merging a pull request (pr_status) and the merge itself.
+
+Used per PR by the Jenkins job Pi-PR-Auto-Merge (via form_pr.py check), which the PR build starts when it
+succeeds, and by the form jobs. Run on its own (main) it checks every open PR once, e.g. by hand.
 
 A PR is ready (pr_status) only when all of these hold:
   1. it targets main, comes from a branch of this repo (no forks) and is not a draft,
@@ -18,6 +21,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -30,22 +34,28 @@ from approval_check import API, APPROVERS, REPO, get, review_state  # noqa: E402
 BUILD_CONTEXT = "continuous-integration/jenkins/pr-merge"
 
 
-def call(method, path, body=None):
-    """GitHub API call; returns (ok, parsed JSON or error message)."""
-    req = urllib.request.Request(
-        f"{API}{path}", method=method, data=json.dumps(body).encode() if body is not None else None,
-        headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Accept": "application/vnd.github+json"})
-    try:
-        with urllib.request.urlopen(req) as r:
-            raw = r.read()
-            return True, json.loads(raw) if raw else {}
-    except urllib.error.HTTPError as e:
-        raw = e.read()
+def call(method, path, body=None, retries=3):
+    """GitHub API call; returns (ok, parsed JSON or error message).
+    GitHub server errors (5xx) are often momentary: retried `retries` times (3 s, 6 s, 12 s apart)."""
+    for attempt in range(retries + 1):
+        req = urllib.request.Request(
+            f"{API}{path}", method=method, data=json.dumps(body).encode() if body is not None else None,
+            headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Accept": "application/vnd.github+json"})
         try:
-            msg = json.loads(raw).get("message", "")
-        except ValueError:
-            msg = raw.decode(errors="replace")[:200]
-        return False, f"HTTP {e.code}: {msg}"
+            with urllib.request.urlopen(req) as r:
+                raw = r.read()
+                return True, json.loads(raw) if raw else {}
+        except urllib.error.HTTPError as e:
+            raw = e.read()
+            try:
+                msg = json.loads(raw).get("message", "")
+            except ValueError:
+                msg = raw.decode(errors="replace")[:200]
+            if e.code >= 500 and attempt < retries:
+                print(f"GitHub {method} {path}: HTTP {e.code}, retrying", file=sys.stderr)
+                time.sleep(3 * 2 ** attempt)
+                continue
+            return False, f"HTTP {e.code}: {msg}"
 
 
 def pr_status(pr, require=()):

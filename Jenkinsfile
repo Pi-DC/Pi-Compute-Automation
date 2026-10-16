@@ -154,5 +154,15 @@ pipeline {
     always {
       archiveArtifacts artifacts: 'apply.log', allowEmptyArchive: true
     }
+    success {
+      script {
+        // A green pull request (not form/*: its form job merges it): one Pi-PR-Auto-Merge run for it, which
+        // merges right after the approval. No schedule.
+        if (env.CHANGE_ID && !(env.CHANGE_BRANCH ?: '').startsWith('form/')) {
+          build job: '/Pi-PR-Auto-Merge', wait: false, parameters: [string(name: 'PR_NUMBER', value: env.CHANGE_ID)]
+          echo "Started Pi-PR-Auto-Merge for PR #${env.CHANGE_ID}: it merges once the PR is approved."
+        }
+      }
+    }
   }
 }
