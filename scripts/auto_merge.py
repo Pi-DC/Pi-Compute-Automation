@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Merge open pull requests that are ready. Run by the Jenkins job pr-auto-merge every 2 minutes.
+"""Merge open pull requests that are ready. Run by the Jenkins job pr-auto-merge every minute.
 
 A PR is ready (pr_status) only when all of these hold:
   1. it targets main, comes from a branch of this repo (no forks) and is not a draft,

@@ -7,7 +7,7 @@ OS firewall rules for client VMs, managed as code. Linux: UFW (Ubuntu) / firewal
 1. Editor creates a branch, edits `host_vars/<host>.yml`, opens a Pull Request.
 2. Jenkins builds the PR: lint, plan, firewall status, dry run. The plan shows exactly which rules are added/removed
    on which hosts; **Firewall status** shows whether each of those hosts has its firewall enabled and running.
-3. Admin reviews and **Approves** the PR in GitHub. Jenkins job `pr-auto-merge` merges it within ~2 minutes
+3. Admin reviews and **Approves** the PR in GitHub. Jenkins job `pr-auto-merge` merges it within about a minute
    once its PR build is green and it is approved on its final commit (the admin can also merge it by hand).
    The approver cannot be the PR author (GitHub does not allow approving your own PR).
 4. Jenkins builds `main`: checks the commit came from a PR the admin approved, then waits.
@@ -36,7 +36,7 @@ A Linux job refuses a Windows client and the other way round. **Build with Param
 3. **Push and review**: dry run, pushes branch `form/<name>-<build>`, opens a PR and asks `Pi-KiranRaja`
    (plus the form's REVIEWERS) to review it.
 4. **Approve and merge**: when the Jenkins PR build is green and every requested reviewer approved, Jenkins
-   merges the PR. Changes requested, a failed PR build or no approval within 24 h: the PR is closed and
+   merges the PR within about 10 seconds (it checks every 10 s; Stage 3 starts the PR build at once). Changes requested, a failed PR build or no approval within 24 h: the PR is closed and
    nothing is applied.
 5. **Apply**: enables + starts the client's firewall if it is off, applies the rules, tags `deployed-form-<build>`.
 6. **Result**: success, or if Stage 5 failed, Jenkins reverts the merge on `main` and applies the old rules
