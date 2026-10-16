@@ -86,8 +86,9 @@ pi-jenkins-agent (collections pinned in `collections/requirements-el7.yml`) and 
 | CentOS-7, RedHat-7, OracleLinux-7 | firewalld | 2.7 `/usr/bin/python` | 2.16 |
 | CentOS-8, RedHat-8, Rocky-8, AlmaLinux-8, OracleLinux-8 | firewalld | 3.6 `/usr/libexec/platform-python` | 2.16 |
 | CentOS-9 (Stream), RedHat-9, Rocky-9, AlmaLinux-9, OracleLinux-9 | firewalld | 3.9 | 2.21 |
+| CentOS-10 (Stream), RedHat-10, Rocky-10, AlmaLinux-10, OracleLinux-10 | firewalld | 3.12 | 2.21 |
 | Ubuntu-20 | UFW | 3.8 | 2.16 |
-| Ubuntu-22, Ubuntu-24 | UFW | 3.10 / 3.12 | 2.21 |
+| Ubuntu-22, Ubuntu-24, Ubuntu-26 | UFW | 3.10 / 3.12 / 3.13 | 2.21 |
 
 The os_baseline must match what Ansible reports (`<distribution>-<major version>`); `playbooks/firewall.yml`
 refuses a host whose real OS differs. Set up the older Ansible on the agent once:
