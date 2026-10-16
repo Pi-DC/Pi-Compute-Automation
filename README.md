@@ -20,13 +20,22 @@ Direct pushes to `main` are refused by Jenkins (GitHub Free cannot block them fo
 
 ### Or: the Jenkins form (job `client-firewall-form`)
 
-**Build with Parameters**, fill in the client (IP, name, OS, login, SSH/RDP port) and the rules to add or
-remove, click **Build**. The job saves the login as Jenkins credential `client-<name>` (never in git),
-commits the change to `inventory/hosts.yml` + `host_vars/<name>.yml`, lints, plans, checks the firewall status
-and dry-runs it, then waits for `Pi-Compute` to click **Apply**. Only then does it enable + start the client's
-firewall if it is off, push the commit to `main` (trailer `Fw-Form-Build:`), apply the rules to that one client
-and tag `deployed-form-<build>`. The `main` build skips
-commits with that trailer, because the form job already approved and applied them. See `jenkins/README.md`.
+**Build with Parameters**, fill in the client (IP, name, OS, login, SSH/RDP port), the rules to add or remove
+and optionally more GitHub reviewers, click **Build**. Six stages:
+
+1. **Request**: checks the form, writes the change to `inventory/hosts.yml` + `host_vars/<name>.yml`, lint, plan.
+2. **Login**: logs in to the client with the given details (Linux: SSH + sudo, Windows: WinRM). Only if that
+   works are they saved as Jenkins credential `client-<name>` (never in git). Reports the firewall status.
+3. **Push and review**: dry run, pushes branch `form/<name>-<build>`, opens a PR and asks `Pi-KiranRaja`
+   (plus the form's REVIEWERS) to review it.
+4. **Approve and merge**: when the Jenkins PR build is green and every requested reviewer approved, Jenkins
+   merges the PR. Changes requested, a failed PR build or no approval within 24 h: the PR is closed and
+   nothing is applied.
+5. **Apply**: enables + starts the client's firewall if it is off, applies the rules, tags `deployed-form-<build>`.
+6. **Result**: success, or if Stage 5 failed, Jenkins reverts the merge on `main` and applies the old rules
+   again (the firewall stays enabled), comments on the PR and fails the build.
+
+The `main` build skips commits with the trailer `Fw-Form-Build:`, because the form job applies them. See `jenkins/README.md`.
 
 ## Layout
 
@@ -40,6 +49,8 @@ commits with that trailer, because the form job already approved and applied the
 | `scripts/approval_check.py` | Refuses to apply unapproved changes |
 | `scripts/auto_merge.py`, `jenkins/pr-auto-merge.Jenkinsfile` | Job `pr-auto-merge`: merges green + approved PRs |
 | `scripts/form_change.py` | Writes a Jenkins form request into the inventory and host_vars |
+| `scripts/form_pr.py`, `scripts/rollback_plan.sh` | Form job: PR, reviewers, merge; old rules after a failed apply |
+| `playbooks/login_check.yml` | Form job Stage 2: can Ansible log in? Changes nothing |
 | `scripts/run-playbook.sh` | Runs a playbook on the given hosts; CentOS 7 hosts with the older Ansible (below) |
 | `jenkins/client-firewall-form.groovy` | Pipeline of the `client-firewall-form` job |
 | `playbooks/firewall.yml` | Applies the planned rule changes |

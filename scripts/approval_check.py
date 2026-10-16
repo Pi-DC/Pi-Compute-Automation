@@ -33,14 +33,17 @@ def get(path):
     return out
 
 
-def review_state(num, author, head):
-    """(approvers who approved commit `head` of PR `num`, users with an open "changes requested")."""
+def review_state(num, author, head, with_all=False):
+    """(approvers who approved commit `head` of PR `num`, users with an open "changes requested"),
+    plus everyone (not the author) who approved `head` if with_all."""
     latest = {}
     for r in get(f"/repos/{REPO}/pulls/{num}/reviews"):
         if r["state"] in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED"):
             latest[r["user"]["login"].lower()] = (r["state"], r.get("commit_id"))
     valid = {u for u, (s, c) in latest.items() if s == "APPROVED" and c == head and u != author and u in APPROVERS}
     blocked = [u for u, (s, _) in latest.items() if s == "CHANGES_REQUESTED"]
+    if with_all:
+        return valid, blocked, {u for u, (s, c) in latest.items() if s == "APPROVED" and c == head and u != author}
     return valid, blocked
 
 
