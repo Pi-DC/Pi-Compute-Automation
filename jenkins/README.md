@@ -22,6 +22,8 @@ family/action settings differ). To change them:
 
 1. Edit the template (or `JOBS` / `params()` in `scripts/form_jobs.py`), run `python3 scripts/form_jobs.py`,
    commit the template and `jobs/` through a pull request (Lint fails if `jobs/` is out of date).
+   Before that, check they compile as pipeline code: `java -jar jenkins-cli.jar ... groovy = < jenkins/cps-compile-check.groovy`
+   (the declarative validator alone misses e.g. the spread operator `*.`, which pipelines do not support).
 2. After the merge, for each job: `python3 scripts/form_jobs.py --config-xml <job> | java -jar jenkins-cli.jar ... update-job <job>`
    (`create-job` for a new one), then approve the script.
 

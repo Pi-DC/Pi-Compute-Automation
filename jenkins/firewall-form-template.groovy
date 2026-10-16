@@ -111,7 +111,9 @@ pipeline {
           def reviewers = [REVIEWER]
           for (r in (params.REVIEWERS ?: '').tokenize(', ')) {
             if (!(r ==~ /[A-Za-z0-9](-?[A-Za-z0-9]){0,38}/)) { error "REVIEWERS: '${r}' is not a GitHub user name" }
-            if (!reviewers*.toLowerCase().contains(r.toLowerCase())) { reviewers << r }
+            def known = false   // plain loops: pipeline (CPS) code has no spread operator
+            for (x in reviewers) { if (x.equalsIgnoreCase(r)) { known = true } }
+            if (!known) { reviewers << r }
           }
           env.FW_REVIEWERS = reviewers.join(',')
 
@@ -123,7 +125,9 @@ pipeline {
           env.FW_NEW_LOGIN = pass ? 'yes' : ''
 
           def rules = (JOB_ACTION == 'open' ? params.RULES_ADD : params.RULES_REMOVE) ?: ''
-          if (!rules.readLines().any { it.trim() && !it.trim().startsWith('#') }) {
+          def ruleLines = 0
+          for (line in rules.readLines()) { if (line.trim() && !line.trim().startsWith('#')) { ruleLines++ } }
+          if (ruleLines == 0) {
             error "Enter at least one rule in ${JOB_ACTION == 'open' ? 'RULES_ADD' : 'RULES_REMOVE'}"
           }
           env.FW_RULES = rules
