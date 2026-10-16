@@ -1,6 +1,7 @@
 # Pi-Compute-Automation (Pi-DC)
 
-OS firewall rules for client VMs, managed as code. Linux: UFW (Ubuntu) / firewalld (RHEL, CentOS 7). Windows: Defender Firewall.
+OS firewall rules for client VMs, managed as code. Linux: UFW (Ubuntu) / firewalld (Red Hat, Rocky, AlmaLinux,
+Oracle Linux, CentOS). Windows: Defender Firewall.
 
 ## How a change flows
 
@@ -58,7 +59,7 @@ The `main` build skips commits with the trailer `Fw-Form-Build:`, because the fo
 | `scripts/form_change.py` | Writes a Jenkins form request into the inventory and host_vars |
 | `scripts/form_pr.py`, `scripts/rollback_plan.sh` | Form job: PR, reviewers, merge; old rules after a failed apply |
 | `playbooks/login_check.yml` | Form job Stage 2: can Ansible log in? Changes nothing |
-| `scripts/run-playbook.sh` | Runs a playbook on the given hosts; CentOS 7 hosts with the older Ansible (below) |
+| `scripts/run-playbook.sh` | Runs a playbook on the given hosts, older systems with the older Ansible (below) |
 | `jenkins/firewall-form-template.groovy`, `jenkins/jobs/` | Pipelines of the four form jobs: `scripts/form_jobs.py` generates `jobs/` from the template |
 | `playbooks/firewall.yml` | Applies the planned rule changes |
 | `playbooks/firewall_service.yml` | Checks (`fw_service_mode=check`) or enables + starts (`ensure`) the firewall itself |
@@ -74,16 +75,24 @@ fw_rules:
 
 `dst` (optional, default `any`) limits the rule to one destination address of the client.
 
-## CentOS 7 hosts
+## Supported Linux systems
 
-CentOS 7 has only Python 2.7, which ansible-core 2.17 and later cannot manage. `scripts/run-playbook.sh`
-runs hosts with `os_baseline: CentOS-7` with ansible-core 2.16 from `/opt/ansible-el7` on pi-jenkins-agent,
-the collections pinned in `collections/requirements-el7.yml` and `/usr/bin/python` (it has the firewalld
-bindings). All other hosts use the normal Ansible. Lint always runs with the normal Ansible.
+Nothing is installed on a client, so Ansible uses the Python each system ships. ansible-core 2.21 needs Python
+3.9+ there; `scripts/run-playbook.sh` runs older systems with ansible-core 2.16 from `/opt/ansible-el7` on
+pi-jenkins-agent (collections pinned in `collections/requirements-el7.yml`) and that system's own Python:
 
-Set up on the agent once: `python3 -m venv /opt/ansible-el7 && /opt/ansible-el7/bin/pip install ansible-core==2.16.14 pyyaml`.
-CentOS 7 is end-of-life (no security updates since June 2024): replace these hosts when you can, then
-delete the venv, this section, the wrapper's legacy branch and `requirements-el7.yml`.
+| OS_TYPE / os_baseline | Firewall | Client Python | Ansible |
+|---|---|---|---|
+| CentOS-7, RedHat-7, OracleLinux-7 | firewalld | 2.7 `/usr/bin/python` | 2.16 |
+| CentOS-8, RedHat-8, Rocky-8, AlmaLinux-8, OracleLinux-8 | firewalld | 3.6 `/usr/libexec/platform-python` | 2.16 |
+| CentOS-9 (Stream), RedHat-9, Rocky-9, AlmaLinux-9, OracleLinux-9 | firewalld | 3.9 | 2.21 |
+| Ubuntu-20 | UFW | 3.8 | 2.16 |
+| Ubuntu-22, Ubuntu-24 | UFW | 3.10 / 3.12 | 2.21 |
+
+The os_baseline must match what Ansible reports (`<distribution>-<major version>`); `playbooks/firewall.yml`
+refuses a host whose real OS differs. Set up the older Ansible on the agent once:
+`python3 -m venv /opt/ansible-el7 && /opt/ansible-el7/bin/pip install ansible-core==2.16.14 pyyaml`.
+CentOS 7/8, RHEL 7, Oracle Linux 7 and Ubuntu 20.04 are past their standard support: replace them when you can.
 
 ## No default rules
 
