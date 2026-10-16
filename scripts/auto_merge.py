@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Merge open pull requests that are ready. Run by the Jenkins job pr-auto-merge every minute.
+"""Merge open pull requests that are ready. Run by the Jenkins job Pi-PR-Auto-Merge every minute.
 
 A PR is ready (pr_status) only when all of these hold:
   1. it targets main, comes from a branch of this repo (no forks) and is not a draft,
@@ -104,7 +104,7 @@ def main():
         if state != "ready":
             print(f"{tag}: {state}, {msg}")
             continue
-        ok, res = merge(pr, f"Merged by Jenkins pr-auto-merge: {msg}.")
+        ok, res = merge(pr, f"Merged by Jenkins Pi-PR-Auto-Merge: {msg}.")
         if ok:
             print(f"{tag}: MERGED as {res[:7]} ({msg})")
         else:

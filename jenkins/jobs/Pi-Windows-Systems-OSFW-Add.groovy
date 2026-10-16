@@ -1,4 +1,4 @@
-// Jenkins job "Windows-Firewall-Remove": Remove firewall rules from a known Windows client.
+// Jenkins job "Pi-Windows-Systems-OSFW-Add": Open firewall ports (add rules) on a Windows client. Adds a new client if it is not known yet.
 //
 // GENERATED from jenkins/firewall-form-template.groovy by scripts/form_jobs.py: edit the template, run
 // `python3 scripts/form_jobs.py`, commit both. This script is the job's own (admin-approved, not sandboxed)
@@ -31,8 +31,8 @@ def REVIEW_HOURS = 24
 def POLL_SECONDS = 10           // Stage 4: how often the PR is checked; merges within this time of the approval
 def REPO_JOB     = 'os-firewall' // multibranch job that builds the PRs
 def JOB_FAMILY = 'windows'   // linux | windows: clients of the other family are refused
-def JOB_ACTION = 'remove'   // open: RULES_ADD only | remove: RULES_REMOVE only, known clients only
-def JOB_SLUG   = 'windows-remove'     // in branch, tag and credential names, unique per job
+def JOB_ACTION = 'open'   // open: RULES_ADD only | remove: RULES_REMOVE only, known clients only
+def JOB_SLUG   = 'windows-open'     // in branch, tag and credential names, unique per job
 
 @NonCPS
 def findLogin(String id) {
@@ -123,11 +123,12 @@ pipeline {
     buildDiscarder(logRotator(daysToKeepStr: '365'))
   }
   parameters {
-    string(name: 'CLIENT_IP', defaultValue: '', trim: true, description: 'IP address of the client (as in the inventory)')
-    string(name: 'CLIENT_NAME', defaultValue: '', trim: true, description: 'Name of the client as in the inventory. Empty = client-&lt;IP with dashes&gt;.')
+    string(name: 'CLIENT_IP', defaultValue: '', trim: true, description: 'IP address of the client, e.g. 172.20.119.111')
+    string(name: 'CLIENT_NAME', defaultValue: '', trim: true, description: 'Optional short name (lowercase, digits, -). Use the same name every time for the same client. Empty = client-&lt;IP with dashes&gt;.')
+    choice(name: 'OS_TYPE', choices: ['Windows-2022', 'Windows-2019'], description: 'Operating system of the client (must match the inventory for a known client)')
     string(name: 'CLIENT_USERNAME', defaultValue: '', trim: true, description: 'Required: login user (local or DOMAIN\\user admin for WinRM).')
     password(name: 'CLIENT_PASSWORD', defaultValue: '', description: 'Required: password for that user. Used only while this build runs: never in git, and deleted from Jenkins when the build ends (it is not kept with the build either).')
-    text(name: 'RULES_REMOVE', defaultValue: '', description: 'Firewall rules to REMOVE (each must exist on this client). One rule per line: <code>SOURCE  DESTINATION  PORTS  [tcp|udp]  [comment]</code><br>SOURCE / DESTINATION = <code>any</code>, an IP or a CIDR. PORTS = <code>443</code>, <code>8000-8010</code> or <code>80,443</code>. Protocol defaults to tcp.<br>Example: <code>172.20.120.0/24 any 443 tcp</code><br>Removing the last rule that lets the Jenkins agent 172.20.119.105 reach WinRM port 5986 is refused at Plan.')
+    text(name: 'RULES_ADD', defaultValue: '', description: 'Firewall rules to OPEN. One rule per line: <code>SOURCE  DESTINATION  PORTS  [tcp|udp]  [comment]</code><br>SOURCE / DESTINATION = <code>any</code>, an IP or a CIDR. PORTS = <code>443</code>, <code>8000-8010</code> or <code>80,443</code>. Protocol defaults to tcp.<br>Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code><br>No rule is added by default. The client\'s rules must allow the Jenkins agent 172.20.119.105 to reach WinRM port 5986 (a new client needs that rule here, e.g. <code>172.20.119.105 any 5986 tcp Jenkins</code>), or the build stops at Plan.')
     string(name: 'REVIEWERS', defaultValue: '', trim: true, description: 'Optional: more GitHub users to review the pull request, comma-separated. Pi-KiranRaja is always asked. Every reviewer must approve before the merge.')
   }
   stages {
