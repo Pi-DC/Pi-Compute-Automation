@@ -3,6 +3,7 @@
 | Job | Defined by | What it does |
 |---|---|---|
 | `os-firewall` (multibranch) | `Jenkinsfile` | PRs: lint, plan, firewall status, dry run. `main`: firewall status, approval check, Apply, enable firewall, update rules, tag `deployed-N` |
+| `pr-auto-merge` | `pr-auto-merge.Jenkinsfile` (Pipeline from SCM, main) | Every 2 min: merges open PRs whose Jenkins PR build is SUCCESS and that an approver approved on the final commit. Applies nothing |
 | `client-firewall-form` | `client-firewall-form.groovy` (stored in the job) | Form: add/change one client, firewall status, dry run, Apply, enable firewall, update rules, tag `deployed-form-N` |
 
 Both jobs check the firewall on the hosts they change before touching rules. If it is disabled or stopped

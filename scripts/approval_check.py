@@ -33,23 +33,32 @@ def get(path):
     return out
 
 
-merged = [p for p in get(f"/repos/{REPO}/commits/{os.environ['COMMIT_SHA']}/pulls") if p.get("merged_at")]
-if not merged:
-    sys.exit("REFUSED: this commit was pushed directly to main, not merged from an approved pull request.")
-pr = merged[0]
-num, author, head = pr["number"], pr["user"]["login"].lower(), pr["head"]["sha"]
+def review_state(num, author, head):
+    """(approvers who approved commit `head` of PR `num`, users with an open "changes requested")."""
+    latest = {}
+    for r in get(f"/repos/{REPO}/pulls/{num}/reviews"):
+        if r["state"] in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED"):
+            latest[r["user"]["login"].lower()] = (r["state"], r.get("commit_id"))
+    valid = {u for u, (s, c) in latest.items() if s == "APPROVED" and c == head and u != author and u in APPROVERS}
+    blocked = [u for u, (s, _) in latest.items() if s == "CHANGES_REQUESTED"]
+    return valid, blocked
 
-latest = {}
-for r in get(f"/repos/{REPO}/pulls/{num}/reviews"):
-    if r["state"] in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED"):
-        latest[r["user"]["login"].lower()] = (r["state"], r.get("commit_id"))
 
-valid = {u for u, (s, c) in latest.items() if s == "APPROVED" and c == head and u != author and u in APPROVERS}
-blocked = [u for u, (s, _) in latest.items() if s == "CHANGES_REQUESTED"]
+def main():
+    merged = [p for p in get(f"/repos/{REPO}/commits/{os.environ['COMMIT_SHA']}/pulls") if p.get("merged_at")]
+    if not merged:
+        sys.exit("REFUSED: this commit was pushed directly to main, not merged from an approved pull request.")
+    pr = merged[0]
+    num, author, head = pr["number"], pr["user"]["login"].lower(), pr["head"]["sha"]
+    valid, blocked = review_state(num, author, head)
 
-print(f"PR #{num} by {author}; approved on final commit by: {sorted(valid) or 'nobody'}")
-if blocked:
-    sys.exit(f"REFUSED: changes requested by {blocked}.")
-if not valid:
-    sys.exit(f"REFUSED: PR #{num} needs an approval on its final commit from one of {sorted(APPROVERS)} (not the author).")
-print("Approval check PASSED")
+    print(f"PR #{num} by {author}; approved on final commit by: {sorted(valid) or 'nobody'}")
+    if blocked:
+        sys.exit(f"REFUSED: changes requested by {blocked}.")
+    if not valid:
+        sys.exit(f"REFUSED: PR #{num} needs an approval on its final commit from one of {sorted(APPROVERS)} (not the author).")
+    print("Approval check PASSED")
+
+
+if __name__ == "__main__":
+    main()
