@@ -9,11 +9,22 @@ def FW_APPROVERS     = 'Pi-KiranRaja'                      // GitHub user(s) who
 def JENKINS_APPROVER = 'Pi-Compute'                        // Jenkins user ID(s) who may click Apply
 // ------------------------------------------------------------------------------------------
 
+// Shared credentials, plus the Jenkins credential of every host in FW_HOSTS that names one in
+// inventory/hosts.yml (fw_cred_id, set by the client-firewall form job). The inventory reads them
+// from FWCRED_<HOST>_USER / FWCRED_<HOST>_PASS, so no password is ever stored in git.
 def withFwCreds(Closure body) {
-  withCredentials([
+  def creds = [
     sshUserPrivateKey(credentialsId: 'ansible-ssh-key', keyFileVariable: 'SSH_KEY'),
     usernamePassword(credentialsId: 'ansible-win-cred', usernameVariable: 'WIN_USER', passwordVariable: 'WIN_PASS')
-  ]) { body() }
+  ]
+  for (h in (env.FW_HOSTS ?: '').tokenize(',')) {
+    def id = sh(returnStdout: true, script: """ansible-inventory -i inventory/hosts.yml --host '${h}' | python3 -c 'import sys,json; print(json.load(sys.stdin).get("fw_cred_id", ""))'""").trim()
+    if (id) {
+      def v = 'FWCRED_' + h.toUpperCase().replaceAll('[^A-Z0-9]', '_')
+      creds << usernamePassword(credentialsId: id, usernameVariable: "${v}_USER", passwordVariable: "${v}_PASS")
+    }
+  }
+  withCredentials(creds) { body() }
 }
 
 pipeline {
@@ -50,6 +61,12 @@ pipeline {
         archiveArtifacts artifacts: 'plans/**', allowEmptyArchive: true
         script {
           env.FW_HOSTS = fileExists('plans/hosts.txt') ? readFile('plans/hosts.txt').trim().replace('\n', ',') : ''
+          // Commits pushed by the client-firewall form job were approved and applied by that job.
+          def formBuild = sh(returnStdout: true, script: "git log -1 --format=%B | sed -n 's/^Fw-Form-Build: //p'").trim()
+          if (env.BRANCH_NAME == 'main' && formBuild) {
+            echo "Change made by the client-firewall form job (${formBuild}); it approved and applied it there."
+            env.FW_HOSTS = ''
+          }
           echo(env.FW_HOSTS ? "Hosts to change: ${env.FW_HOSTS}" : 'No firewall changes in this build.')
         }
       }

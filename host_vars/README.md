@@ -14,9 +14,13 @@ fw_rules:
 | port    | number, or range "start-end"    |
 | proto   | tcp or udp                      |
 | src     | any, an IP, or a CIDR           |
+| dst     | optional: any (default), an IP or a CIDR on this host |
 | comment | required: what the rule is for  |
 
 - Add a line = open the port on this host only.
 - Delete a line = close it on this host only.
 - Edit a line = new rule added, old rule removed.
-- SSH 22 / WinRM 5986 / RDP 3389 from the management network are protected and are not listed here.
+- SSH (`fw_ssh_port`, default 22) / WinRM 5986 / RDP (`fw_rdp_port`, default 3389) from the management
+  network are protected and are not listed here. Set those ports per host in `inventory/hosts.yml`.
+- Hosts added by the Jenkins form also carry `fw_cred_id` and read their login from `FWCRED_<HOST>_USER` /
+  `FWCRED_<HOST>_PASS`, which the pipelines fill from that Jenkins credential.
