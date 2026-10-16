@@ -23,7 +23,7 @@ Direct pushes to `main` are refused by Jenkins (GitHub Free cannot block them fo
 | Job | What it does |
 |---|---|
 | `Pi-Linux-Systems-OSFW-Add` | Opens ports (adds rules) on a Linux client; adds the client if it is new (IP, name, OS, login, SSH port) |
-| `Pi-Linux-Systems-OS-FW-Remove` | Removes rules from a known Linux client (OS and SSH port come from the inventory) |
+| `Pi-Linux-Systems-OSFW-Remove` | Removes rules from a known Linux client (OS and SSH port come from the inventory) |
 | `Pi-Windows-Systems-OSFW-Add` | Opens ports on a Windows client; adds the client if it is new (IP, name, OS, login) |
 | `Pi-Windows-Systems-OSFW-Remove` | Removes rules from a known Windows client |
 

@@ -21,7 +21,7 @@ OS_CHOICES = {"linux": ["Ubuntu-24", "Ubuntu-22", "RedHat-9", "CentOS-7"], "wind
 
 JOBS = {
     "Pi-Linux-Systems-OSFW-Add": ("linux", "open", "linux-open", "Open firewall ports (add rules) on a Linux client. Adds a new client if it is not known yet."),
-    "Pi-Linux-Systems-OS-FW-Remove": ("linux", "remove", "linux-remove", "Remove firewall rules from a known Linux client."),
+    "Pi-Linux-Systems-OSFW-Remove": ("linux", "remove", "linux-remove", "Remove firewall rules from a known Linux client."),
     "Pi-Windows-Systems-OSFW-Add": ("windows", "open", "windows-open", "Open firewall ports (add rules) on a Windows client. Adds a new client if it is not known yet."),
     "Pi-Windows-Systems-OSFW-Remove": ("windows", "remove", "windows-remove", "Remove firewall rules from a known Windows client."),
 }

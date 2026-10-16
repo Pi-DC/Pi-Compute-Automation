@@ -1,4 +1,4 @@
-// Jenkins job "Pi-Linux-Systems-OS-FW-Remove": Remove firewall rules from a known Linux client.
+// Jenkins job "Pi-Linux-Systems-OSFW-Remove": Remove firewall rules from a known Linux client.
 //
 // GENERATED from jenkins/firewall-form-template.groovy by scripts/form_jobs.py: edit the template, run
 // `python3 scripts/form_jobs.py`, commit both. This script is the job's own (admin-approved, not sandboxed)
