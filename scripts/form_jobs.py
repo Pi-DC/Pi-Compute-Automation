@@ -39,8 +39,8 @@ def params(family, action):
     """[(type, name, default, description, choices)] in form order."""
     known = action == "remove"
     p = [
-        ("string", "CLIENT_IP", "", "IP address of the client" + (" (as in the inventory)" if known else ", e.g. 172.20.119.111"), None),
-        ("string", "CLIENT_NAME", "", ("Name of the client as in the inventory. " if known else
+        ("string", "VM_IP", "", "IP address of the client" + (" (as in the inventory)" if known else ", e.g. 172.20.119.111"), None),
+        ("string", "VM_NAME", "", ("Name of the client as in the inventory. " if known else
                                        "Optional short name (lowercase, digits, -). Use the same name every time for the same client. ")
          + "Empty = client-&lt;IP with dashes&gt;.", None),
     ]
@@ -49,8 +49,8 @@ def params(family, action):
          + ("CentOS-8 = CentOS Linux 8 or Stream 8, CentOS-9/10 = CentOS Stream 9/10." if family == "linux" else ""), OS_CHOICES[family]))
     who = "SSH user with sudo" if family == "linux" else "local or DOMAIN\\user admin for WinRM"
     p += [
-        ("string", "CLIENT_USERNAME", "", f"Required: login user ({who}).", None),
-        ("password", "CLIENT_PASSWORD", "", "Required: password for that user. Used only while this build runs: "
+        ("string", "VM_USERNAME", "", f"Required: login user ({who}).", None),
+        ("password", "VM_PASSWORD", "", "Required: password for that user. Used only while this build runs: "
          "never in git, and deleted from Jenkins when the build ends (it is not kept with the build either).", None),
     ]
     if action == "open" and family == "linux":

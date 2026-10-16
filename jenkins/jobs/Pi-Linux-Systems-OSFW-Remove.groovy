@@ -123,10 +123,10 @@ pipeline {
     buildDiscarder(logRotator(daysToKeepStr: '365'))
   }
   parameters {
-    string(name: 'CLIENT_IP', defaultValue: '', trim: true, description: 'IP address of the client (as in the inventory)')
-    string(name: 'CLIENT_NAME', defaultValue: '', trim: true, description: 'Name of the client as in the inventory. Empty = client-&lt;IP with dashes&gt;.')
-    string(name: 'CLIENT_USERNAME', defaultValue: '', trim: true, description: 'Required: login user (SSH user with sudo).')
-    password(name: 'CLIENT_PASSWORD', defaultValue: '', description: 'Required: password for that user. Used only while this build runs: never in git, and deleted from Jenkins when the build ends (it is not kept with the build either).')
+    string(name: 'VM_IP', defaultValue: '', trim: true, description: 'IP address of the client (as in the inventory)')
+    string(name: 'VM_NAME', defaultValue: '', trim: true, description: 'Name of the client as in the inventory. Empty = client-&lt;IP with dashes&gt;.')
+    string(name: 'VM_USERNAME', defaultValue: '', trim: true, description: 'Required: login user (SSH user with sudo).')
+    password(name: 'VM_PASSWORD', defaultValue: '', description: 'Required: password for that user. Used only while this build runs: never in git, and deleted from Jenkins when the build ends (it is not kept with the build either).')
     text(name: 'RULES_REMOVE', defaultValue: '', description: 'Firewall rules to REMOVE (each must exist on this client). One rule per line: <code>SOURCE  DESTINATION  PORTS  [tcp|udp]  [comment]</code><br>SOURCE / DESTINATION = <code>any</code>, an IP or a CIDR. PORTS = <code>443</code>, <code>8000-8010</code> or <code>80,443</code>. Protocol defaults to tcp.<br>Example: <code>172.20.120.0/24 any 443 tcp</code><br>Removing the last rule that lets the Jenkins agent 172.20.119.105 reach its SSH port is refused at Plan.')
     string(name: 'REVIEWERS', defaultValue: '', trim: true, description: 'Optional: more GitHub users to review the pull request, comma-separated. Pi-KiranRaja is always asked. Every reviewer must approve before the merge.')
   }
@@ -135,10 +135,10 @@ pipeline {
       agent { label 'ansible' }
       steps {
         script {
-          def ip = params.CLIENT_IP ?: ''
-          if (!(ip ==~ /\d{1,3}(\.\d{1,3}){3}/)) { error "CLIENT_IP '${ip}' is not an IPv4 address" }
-          def name = (params.CLIENT_NAME ?: "client-${ip.replace('.', '-')}").toLowerCase()
-          if (!(name ==~ /[a-z0-9][a-z0-9-]{0,62}/)) { error "CLIENT_NAME '${name}': use lowercase letters, digits and '-'" }
+          def ip = params.VM_IP ?: ''
+          if (!(ip ==~ /\d{1,3}(\.\d{1,3}){3}/)) { error "VM_IP '${ip}' is not an IPv4 address" }
+          def name = (params.VM_NAME ?: "client-${ip.replace('.', '-')}").toLowerCase()
+          if (!(name ==~ /[a-z0-9][a-z0-9-]{0,62}/)) { error "VM_NAME '${name}': use lowercase letters, digits and '-'" }
           env.FW_NAME = name
           env.FW_IP = ip
           env.FW_IS_LINUX = JOB_FAMILY == 'linux' ? 'yes' : ''
@@ -157,7 +157,7 @@ pipeline {
           env.FW_REVIEWERS = reviewers.join(',')
 
           // No login is kept between builds: enter it every time.
-          if (!params.CLIENT_USERNAME || !plainText(params.CLIENT_PASSWORD)) { error 'Enter CLIENT_USERNAME and CLIENT_PASSWORD (no login is kept in Jenkins between builds)' }
+          if (!params.VM_USERNAME || !plainText(params.VM_PASSWORD)) { error 'Enter VM_USERNAME and VM_PASSWORD (no login is kept in Jenkins between builds)' }
           def owner = loginOwner(env.FW_CRED_ID)
           if (owner && isRunning(owner[0], owner[1]) && !(owner[0] == env.JOB_NAME && owner[1] == (env.BUILD_NUMBER as int))) {
             error "${name} is being changed by ${owner[0]} #${owner[1]}: run this again when that build has finished."
@@ -244,7 +244,7 @@ pipeline {
           script {
             // Temporary: deleted when this build ends (post), whatever its result. The PR build of this
             // change uses it too, while Stage 4 waits for it.
-            saveLogin(env.FW_CRED_ID, params.CLIENT_USERNAME, plainText(params.CLIENT_PASSWORD),
+            saveLogin(env.FW_CRED_ID, params.VM_USERNAME, plainText(params.VM_PASSWORD),
               "In use by ${env.JOB_NAME} #${env.BUILD_NUMBER} (${env.BUILD_URL}); deleted when that build ends")
             env.FW_LOGIN_SAVED = 'yes'
             try {
@@ -253,9 +253,9 @@ pipeline {
                 sh 'ANSIBLE_SSH_ARGS="-C -o ControlMaster=no -o ControlPath=none" bash scripts/run-playbook.sh playbooks/login_check.yml "$FW_NAME"'
               }
             } catch (e) {
-              error "Login to ${env.FW_NAME} (${env.FW_IP}) as ${params.CLIENT_USERNAME} failed (see above). Nothing was changed."
+              error "Login to ${env.FW_NAME} (${env.FW_IP}) as ${params.VM_USERNAME} failed (see above). Nothing was changed."
             }
-            echo "Login works (user ${params.CLIENT_USERNAME}). It is kept only until this build ends."
+            echo "Login works (user ${params.VM_USERNAME}). It is kept only until this build ends."
           }
           withClientCreds {
             sh 'bash scripts/run-playbook.sh playbooks/firewall_service.yml "$FW_NAME" -e fw_service_mode=check'
