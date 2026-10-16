@@ -1,0 +1,4 @@
+---
+# Day-1 rules for every Windows Server 2025 host (in addition to its host_vars file).
+# Changing this file changes ALL Windows-2025 hosts. No rule is added by default: keep it empty.
+fw_rules: []

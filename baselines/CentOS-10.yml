@@ -1,0 +1,4 @@
+---
+# Day-1 rules for every CentOS Stream 10 host (in addition to its host_vars file).
+# Changing this file changes ALL CentOS-10 hosts. No rule is added by default: keep it empty.
+fw_rules: []

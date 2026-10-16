@@ -29,7 +29,7 @@ import sys
 
 import yaml
 
-OS_TYPES = ["AlmaLinux-8", "AlmaLinux-9", "CentOS-7", "CentOS-8", "CentOS-9", "OracleLinux-7", "OracleLinux-8", "OracleLinux-9", "RedHat-7", "RedHat-8", "RedHat-9", "Rocky-8", "Rocky-9", "Ubuntu-20", "Ubuntu-22", "Ubuntu-24", "Windows-2019", "Windows-2022"]
+OS_TYPES = ["AlmaLinux-10", "AlmaLinux-8", "AlmaLinux-9", "CentOS-10", "CentOS-7", "CentOS-8", "CentOS-9", "OracleLinux-10", "OracleLinux-7", "OracleLinux-8", "OracleLinux-9", "RedHat-10", "RedHat-7", "RedHat-8", "RedHat-9", "Rocky-10", "Rocky-8", "Rocky-9", "Ubuntu-20", "Ubuntu-22", "Ubuntu-24", "Ubuntu-26", "Windows-2019", "Windows-2022", "Windows-2025"]
 HOSTS_FILE = "inventory/hosts.yml"
 
 
