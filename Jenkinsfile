@@ -6,7 +6,7 @@
 //                -> Ansible applies only the changed rules on only the changed hosts -> tag deployed-N
 
 // ---- CHANGE THESE THREE VALUES ----------------------------------------------------------
-def REPO             = 'Pi-DC/os-firewall-automation'
+def REPO             = 'Pi-DC/Pi-Compute-Automation'
 def FW_APPROVERS     = 'Pi-KiranRaja'                      // GitHub user(s) who may approve PRs, comma-separated
 def JENKINS_APPROVER = 'Pi-Compute'                        // Jenkins user ID(s) who may click Apply
 // ------------------------------------------------------------------------------------------

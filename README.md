@@ -1,4 +1,4 @@
-# os-firewall-automation (Pi-DC)
+# Pi-Compute-Automation (Pi-DC)
 
 OS firewall rules for client VMs, managed as code. Linux: UFW (Ubuntu) / firewalld (RHEL, CentOS 7). Windows: Defender Firewall.
 
