@@ -1,0 +1,17 @@
+---
+# firewalld starts with its saved (permanent) rules, which include the management rule once this
+# host was applied. The rule is added again right after the start for hosts that never were.
+- name: Unmask, enable at boot and start firewalld
+  ansible.builtin.systemd:
+    name: firewalld
+    masked: false
+    enabled: true
+    state: started
+
+- name: Protected management SSH
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ item }}" port port="{{ fw_ssh_port | default(22) }}" protocol="tcp" accept'
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ fw_mgmt_sources }}"

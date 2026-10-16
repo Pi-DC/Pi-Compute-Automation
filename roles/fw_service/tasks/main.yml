@@ -1,0 +1,38 @@
+---
+# The firewall itself, not its rules: is it enabled at boot and running?
+#   fw_service_mode=check   report only, change nothing
+#   fw_service_mode=ensure  enable + start it where it is not, then check again
+# Before switching a firewall on, the protected management rules are added, so Ansible and the
+# admins keep their access. The other rules are applied afterwards by playbooks/firewall.yml.
+- name: Read firewall status
+  ansible.builtin.include_tasks: status.yml
+
+- name: Firewall status
+  ansible.builtin.debug:
+    msg: "{{ fw_service_report }}"
+
+# Decided once: the facts below change when the status is read again.
+- name: Decide whether to enable the firewall
+  ansible.builtin.set_fact:
+    fw_service_fix: "{{ fw_service_mode == 'ensure' and not fw_service_ok }}"
+
+- name: Enable and start the firewall
+  when: fw_service_fix
+  block:
+    - name: Firewall must be installed
+      ansible.builtin.assert:
+        that: fw_service_state.installed
+        fail_msg: "{{ fw_service_type }} is not installed on {{ inventory_hostname }}. Install it, then run the build again."
+        quiet: true
+
+    - name: Enable and start the firewall
+      ansible.builtin.include_tasks: "enable_{{ fw_service_type }}.yml"
+
+    - name: Read firewall status again
+      ansible.builtin.include_tasks: status.yml
+
+    - name: Firewall must now be enabled and running
+      ansible.builtin.assert:
+        that: fw_service_ok
+        fail_msg: "Still not enabled and running: {{ fw_service_report }}"
+        success_msg: "{{ fw_service_report }}"

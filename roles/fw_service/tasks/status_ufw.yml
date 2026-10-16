@@ -1,0 +1,19 @@
+---
+- name: Read services
+  ansible.builtin.service_facts:
+
+# ufw.service is a oneshot unit, so service_facts never shows it as running: ask ufw itself.
+- name: Read UFW status
+  ansible.builtin.command: ufw status
+  register: fw_service_ufw
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Record UFW state
+  ansible.builtin.set_fact:
+    fw_service_state:
+      installed: "{{ 'ufw.service' in ansible_facts.services }}"
+      boot_enabled: "{{ ansible_facts.services['ufw.service'].status | default('') == 'enabled' }}"
+      running: "{{ fw_service_ufw.rc | default(1) == 0 and 'Status: active' in fw_service_ufw.stdout | default('') }}"
+      detail: "{{ fw_service_ufw.stdout_lines | default([]) | first | default('') }}"

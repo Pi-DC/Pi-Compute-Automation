@@ -1,0 +1,27 @@
+---
+- name: Windows Firewall service starts automatically and runs
+  ansible.windows.win_service:
+    name: MpsSvc
+    start_mode: auto
+    state: started
+
+# Management WinRM / RDP first, so switching the profiles on cannot cut Ansible or the admins off.
+- name: Protected management rules (before the firewall is switched on)
+  community.windows.win_firewall_rule:
+    name: "{{ item.name }}"
+    localport: "{{ item.port }}"
+    remoteip: "{{ item.src }}"
+    protocol: tcp
+    direction: in
+    action: allow
+    profiles: [domain, private, public]
+    enabled: true
+    state: present
+  loop:
+    - { name: ANS-MGMT-WINRM, port: 5986, src: "{{ fw_agent_ip }}" }
+    - { name: ANS-MGMT-RDP, port: "{{ fw_rdp_port | default(3389) }}", src: "{{ fw_admin_subnet }}" }
+
+- name: Switch the firewall on for all profiles
+  ansible.windows.win_firewall:
+    profiles: [Domain, Private, Public]
+    state: enabled

@@ -24,18 +24,20 @@ def key(rule, where):
     port = str(rule.get("port", ""))
     proto = str(rule.get("proto", "")).lower()
     src = str(rule.get("src", ""))
+    dst = str(rule.get("dst", "any"))
     if not re.fullmatch(r"\d{1,5}(-\d{1,5})?", port) or any(int(p) > 65535 for p in port.split("-")):
         sys.exit(f"{where}: bad port {port!r} in {rule}")
     if proto not in ("tcp", "udp"):
         sys.exit(f"{where}: proto must be tcp or udp, got {proto!r} in {rule}")
-    if src != "any":
-        try:
-            ipaddress.ip_network(src, strict=False)
-        except ValueError:
-            sys.exit(f"{where}: bad src {src!r} in {rule}")
+    for field, value in (("src", src), ("dst", dst)):
+        if value != "any":
+            try:
+                ipaddress.ip_network(value, strict=False)
+            except ValueError:
+                sys.exit(f"{where}: bad {field} {value!r} in {rule}")
     if not rule.get("comment"):
         sys.exit(f"{where}: every rule needs a comment: {rule}")
-    return (port, proto, src)
+    return (port, proto, src, dst)
 
 
 ap = argparse.ArgumentParser()

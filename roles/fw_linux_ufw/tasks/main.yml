@@ -4,7 +4,7 @@
   community.general.ufw:
     rule: allow
     proto: tcp
-    port: "22"
+    port: "{{ fw_ssh_port | default(22) | string }}"
     from_ip: "{{ item }}"
     comment: "managed-by-ansible: MGMT-SSH"
   loop: "{{ fw_mgmt_sources }}"
@@ -15,6 +15,7 @@
     proto: "{{ item.proto }}"
     port: "{{ item.port | string | replace('-', ':') }}"
     from_ip: "{{ item.src }}"
+    to_ip: "{{ item.dst | default('any') }}"
     comment: "managed-by-ansible: {{ item.comment }}"
   loop: "{{ fw_add | default([]) }}"
 
@@ -37,5 +38,6 @@
     proto: "{{ item.proto }}"
     port: "{{ item.port | string | replace('-', ':') }}"
     from_ip: "{{ item.src }}"
+    to_ip: "{{ item.dst | default('any') }}"
     delete: true
   loop: "{{ fw_remove | default([]) }}"

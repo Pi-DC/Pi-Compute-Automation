@@ -8,7 +8,7 @@
 
 - name: Protected management SSH (never removable by a PR)
   ansible.posix.firewalld:
-    rich_rule: 'rule family="ipv4" source address="{{ item }}" port port="22" protocol="tcp" accept'
+    rich_rule: 'rule family="ipv4" source address="{{ item }}" port port="{{ fw_ssh_port | default(22) }}" protocol="tcp" accept'
     permanent: true
     immediate: true
     state: enabled
@@ -25,7 +25,8 @@
 - name: Add rules
   ansible.posix.firewalld:
     rich_rule: >-
-      rule family="ipv4"{{ (' source address="' ~ item.src ~ '"') if item.src != 'any' else '' }} port port="{{ item.port }}" protocol="{{ item.proto }}" accept
+      rule family="ipv4"{{ (' source address="' ~ item.src ~ '"') if item.src != 'any' else '' }}{{
+      (' destination address="' ~ item.dst ~ '"') if item.dst | default('any') != 'any' else '' }} port port="{{ item.port }}" protocol="{{ item.proto }}" accept
     permanent: true
     immediate: true
     state: enabled
@@ -34,7 +35,8 @@
 - name: Remove rules
   ansible.posix.firewalld:
     rich_rule: >-
-      rule family="ipv4"{{ (' source address="' ~ item.src ~ '"') if item.src != 'any' else '' }} port port="{{ item.port }}" protocol="{{ item.proto }}" accept
+      rule family="ipv4"{{ (' source address="' ~ item.src ~ '"') if item.src != 'any' else '' }}{{
+      (' destination address="' ~ item.dst ~ '"') if item.dst | default('any') != 'any' else '' }} port port="{{ item.port }}" protocol="{{ item.proto }}" accept
     permanent: true
     immediate: true
     state: disabled

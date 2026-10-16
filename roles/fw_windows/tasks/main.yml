@@ -14,15 +14,16 @@
     state: present
   loop:
     - { name: ANS-MGMT-WINRM, port: 5986, src: "{{ fw_agent_ip }}" }
-    - { name: ANS-MGMT-RDP, port: 3389, src: "{{ fw_admin_subnet }}" }
+    - { name: ANS-MGMT-RDP, port: "{{ fw_rdp_port | default(3389) }}", src: "{{ fw_admin_subnet }}" }
 
 - name: Add rules
   community.windows.win_firewall_rule:
-    name: "ANS-{{ item.proto | upper }}-{{ item.port }}-{{ item.src | replace('/', '_') }}"
+    name: "{{ fw_windows_rule_name }}"
     description: "{{ item.comment }}"
     localport: "{{ item.port }}"
     protocol: "{{ item.proto }}"
     remoteip: "{{ item.src }}"
+    localip: "{{ item.dst | default('any') }}"
     direction: in
     action: allow
     profiles: [domain, private, public]
@@ -39,6 +40,6 @@
 
 - name: Remove rules
   community.windows.win_firewall_rule:
-    name: "ANS-{{ item.proto | upper }}-{{ item.port }}-{{ item.src | replace('/', '_') }}"
+    name: "{{ fw_windows_rule_name }}"
     state: absent
   loop: "{{ fw_remove | default([]) }}"

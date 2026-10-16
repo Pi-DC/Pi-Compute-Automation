@@ -1,0 +1,26 @@
+---
+# Running = the Windows Defender Firewall service runs and every profile (Domain, Private, Public)
+# is on in the active store, i.e. after Group Policy.
+- name: Read Windows Firewall service and profiles
+  ansible.windows.win_powershell:
+    script: |
+      $Ansible.Changed = $false
+      $svc = Get-Service -Name MpsSvc -ErrorAction SilentlyContinue
+      $off = @()
+      if ($svc -and $svc.Status -eq 'Running') {
+        $off = @(Get-NetFirewallProfile -PolicyStore ActiveStore | Where-Object { $_.Enabled -ne 'True' } | ForEach-Object { $_.Name })
+      }
+      @{
+        installed    = [bool]$svc
+        boot_enabled = [bool]($svc -and $svc.StartType -eq 'Automatic')
+        running      = [bool]($svc -and $svc.Status -eq 'Running' -and $off.Count -eq 0)
+        detail       = $(if (-not $svc) { 'MpsSvc service missing' }
+                         else { "MpsSvc $($svc.Status)/$($svc.StartType)" + $(if ($off.Count) { ", profiles off: $($off -join ' ')" } else { '' }) })
+      }
+  register: fw_service_win
+  changed_when: false
+  check_mode: false
+
+- name: Record Windows Firewall state
+  ansible.builtin.set_fact:
+    fw_service_state: "{{ fw_service_win.output[0] }}"
