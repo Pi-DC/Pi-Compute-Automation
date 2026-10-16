@@ -13,10 +13,11 @@ def JENKINS_APPROVER = 'Pi-Compute'                        // Jenkins user ID(s)
 
 // Shared credentials, plus the Jenkins credential of every host in FW_HOSTS that names one in
 // inventory/hosts.yml (fw_cred_id, set by the firewall form jobs). The inventory reads them
-// from FWCRED_<HOST>_USER / FWCRED_<HOST>_PASS, so no password is ever stored in git.
+// from FWCRED_<HOST>_USER / FWCRED_<HOST>_PASS, so no password is ever stored in git. A form job's
+// client login exists only while that job runs (its PR build runs then), so change form-managed
+// clients through the form jobs: no password is kept in Jenkins between builds.
 def withFwCreds(Closure body) {
   def creds = [
-    sshUserPrivateKey(credentialsId: 'ansible-ssh-key', keyFileVariable: 'SSH_KEY'),
     usernamePassword(credentialsId: 'ansible-win-cred', usernameVariable: 'WIN_USER', passwordVariable: 'WIN_PASS')
   ]
   for (h in (env.FW_HOSTS ?: '').tokenize(',')) {
@@ -80,7 +81,7 @@ pipeline {
       when { expression { env.FW_HOSTS } }
       steps {
         withFwCreds {
-          sh 'bash scripts/run-playbook.sh playbooks/firewall_service.yml "$FW_HOSTS" --private-key "$SSH_KEY" -e fw_service_mode=check'
+          sh 'bash scripts/run-playbook.sh playbooks/firewall_service.yml "$FW_HOSTS" -e fw_service_mode=check'
         }
       }
     }
@@ -89,7 +90,7 @@ pipeline {
       when { allOf { changeRequest(); expression { env.FW_HOSTS } } }
       steps {
         withFwCreds {
-          sh 'bash scripts/run-playbook.sh playbooks/firewall.yml "$FW_HOSTS" --private-key "$SSH_KEY" --check --diff'
+          sh 'bash scripts/run-playbook.sh playbooks/firewall.yml "$FW_HOSTS" --check --diff'
         }
       }
     }
@@ -126,7 +127,7 @@ pipeline {
       when { allOf { branch 'main'; expression { env.FW_HOSTS } } }
       steps {
         withFwCreds {
-          sh 'ANSIBLE_LOG_PATH=apply.log bash scripts/run-playbook.sh playbooks/firewall_service.yml "$FW_HOSTS" --private-key "$SSH_KEY" -e fw_service_mode=ensure'
+          sh 'ANSIBLE_LOG_PATH=apply.log bash scripts/run-playbook.sh playbooks/firewall_service.yml "$FW_HOSTS" -e fw_service_mode=ensure'
         }
       }
     }
@@ -135,7 +136,7 @@ pipeline {
       when { allOf { branch 'main'; expression { env.FW_HOSTS } } }
       steps {
         withFwCreds {
-          sh 'ANSIBLE_LOG_PATH=apply.log bash scripts/run-playbook.sh playbooks/firewall.yml "$FW_HOSTS" --private-key "$SSH_KEY"'
+          sh 'ANSIBLE_LOG_PATH=apply.log bash scripts/run-playbook.sh playbooks/firewall.yml "$FW_HOSTS"'
         }
         withCredentials([usernamePassword(credentialsId: 'github-app-fw', usernameVariable: 'GH_APP', passwordVariable: 'GH_TOKEN')]) {
           withEnv(["GITHUB_REPOSITORY=${REPO}"]) {

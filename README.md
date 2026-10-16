@@ -94,4 +94,14 @@ without a rule letting the agent `172.20.119.105` reach its SSH port (Linux) or 
 error shows the rule to add. Rules that earlier versions added on their own (SSH from 172.20.119.105 and
 172.20.119.0/24; Windows `ANS-MGMT-WINRM` / `ANS-MGMT-RDP`) are removed from a client the next time it is applied.
 
+## Nothing installed, no passwords kept
+
+- Nothing is installed on a client, Linux or Windows: no software, no SSH keys. Ansible logs in with the
+  username and password entered in the form (SSH + sudo, or WinRM). Lint (`scripts/no_package_installs.sh`)
+  fails on any package or SSH-key task.
+- No password is kept: not in git or GitHub, and not in Jenkins after a build. The form's login exists as
+  the temporary credential `client-<name>` only while that build runs (its PR build uses it too) and is
+  deleted at the end, whatever the result; the password parameter is blanked in the build record. Enter the
+  login on every run. While one build uses a client's login, another build for that client stops in Stage 1.
+
 Rollback: revert the PR in GitHub and merge the revert through the same approval.
