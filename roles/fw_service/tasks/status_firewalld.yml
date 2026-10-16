@@ -1,0 +1,11 @@
+---
+- name: Read services
+  ansible.builtin.service_facts:
+
+- name: Record firewalld state
+  ansible.builtin.set_fact:
+    fw_service_state:
+      installed: "{{ 'firewalld.service' in ansible_facts.services }}"
+      boot_enabled: "{{ ansible_facts.services['firewalld.service'].status | default('') == 'enabled' }}"
+      running: "{{ ansible_facts.services['firewalld.service'].state | default('') == 'running' }}"
+      detail: "{{ 'service is masked' if ansible_facts.services['firewalld.service'].status | default('') == 'masked' else '' }}"

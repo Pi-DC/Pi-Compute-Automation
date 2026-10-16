@@ -1,0 +1,18 @@
+---
+# Sets fw_service_state {installed, boot_enabled, running, detail}, fw_service_ok and fw_service_report.
+- name: Read firewall state
+  ansible.builtin.include_tasks: "status_{{ fw_service_type }}.yml"
+
+- name: Firewall enabled and running?
+  ansible.builtin.set_fact:
+    fw_service_ok: "{{ fw_service_state.installed and fw_service_state.boot_enabled and fw_service_state.running }}"
+
+- name: Firewall status line
+  ansible.builtin.set_fact:
+    fw_service_report: >-
+      {{ inventory_hostname }} ({{ fw_service_type }}):
+      installed={{ fw_service_state.installed | ternary('yes', 'NO') }},
+      enabled at boot={{ fw_service_state.boot_enabled | ternary('yes', 'NO') }},
+      running={{ fw_service_state.running | ternary('yes', 'NO') }}{{
+      (', ' ~ fw_service_state.detail) if fw_service_state.detail else '' }}
+      -> {{ fw_service_ok | ternary('OK', 'NOT OK: will be enabled and started before the rules are applied') }}

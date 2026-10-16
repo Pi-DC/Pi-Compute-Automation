@@ -1,6 +1,8 @@
 // OS firewall automation
-//   PR builds  : lint -> plan -> dry run (--check --diff) on the changed hosts. Nothing is changed.
-//   main builds: lint -> plan -> approval check (merged PR approved by admin) -> admin clicks Apply
+//   PR builds  : lint -> plan -> firewall status -> dry run (--check --diff) on the changed hosts.
+//                Nothing is changed.
+//   main builds: lint -> plan -> firewall status -> approval check (merged PR approved by admin)
+//                -> admin clicks Apply -> enable + start the firewall where it is off
 //                -> Ansible applies only the changed rules on only the changed hosts -> tag deployed-N
 
 // ---- CHANGE THESE THREE VALUES ----------------------------------------------------------
@@ -72,6 +74,16 @@ pipeline {
       }
     }
 
+    // Is the firewall enabled and running on every host of this change? Reports only.
+    stage('Firewall status') {
+      when { expression { env.FW_HOSTS } }
+      steps {
+        withFwCreds {
+          sh 'ansible-playbook playbooks/firewall_service.yml --private-key "$SSH_KEY" -l "$FW_HOSTS" -e fw_service_mode=check'
+        }
+      }
+    }
+
     stage('Dry run') {
       when { allOf { changeRequest(); expression { env.FW_HOSTS } } }
       steps {
@@ -107,7 +119,18 @@ pipeline {
       }
     }
 
-    stage('Apply') {
+    // Firewall off or stopped on a host: add the management rules, enable it at boot, start it.
+    // Fails the build (before any rule changes) if it cannot.
+    stage('Enable firewall') {
+      when { allOf { branch 'main'; expression { env.FW_HOSTS } } }
+      steps {
+        withFwCreds {
+          sh 'ANSIBLE_LOG_PATH=apply.log ansible-playbook playbooks/firewall_service.yml --private-key "$SSH_KEY" -l "$FW_HOSTS" -e fw_service_mode=ensure'
+        }
+      }
+    }
+
+    stage('Update firewall rules') {
       when { allOf { branch 'main'; expression { env.FW_HOSTS } } }
       steps {
         withFwCreds {

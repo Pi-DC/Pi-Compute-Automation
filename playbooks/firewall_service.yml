@@ -1,0 +1,33 @@
+---
+# Firewall enabled and running, before playbooks/firewall.yml applies the rules.
+#   -e fw_service_mode=check   report each host's firewall state; changes nothing
+#   -e fw_service_mode=ensure  enable + start the firewall where it is not, then check again
+# Run only with -l <hosts>; Jenkins does this.
+- name: Firewall enabled and running
+  hosts: all
+  gather_facts: true
+  # Checking changes nothing, so all hosts at once; enabling goes in batches like the rules.
+  serial: "{{ (fw_serial | default('25%')) if fw_service_mode == 'ensure' else '100%' }}"
+  max_fail_percentage: 0
+  vars:
+    fw_service_mode: check
+  pre_tasks:
+    - name: Check fw_service_mode
+      ansible.builtin.assert:
+        that: fw_service_mode in ['check', 'ensure']
+        fail_msg: "fw_service_mode must be check or ensure, not {{ fw_service_mode }}"
+        quiet: true
+      run_once: true
+
+  roles:
+    - role: fw_service
+
+  post_tasks:
+    - name: Firewall status of all hosts
+      ansible.builtin.debug:
+        msg: |-
+          {% for h in ansible_play_hosts_all %}
+          {{ hostvars[h].fw_service_report | default(h ~ ': no status (unreachable or failed, see above)') }}
+          {% endfor %}
+      run_once: true
+      when: fw_service_mode == 'check'

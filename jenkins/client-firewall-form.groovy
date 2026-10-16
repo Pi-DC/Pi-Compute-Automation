@@ -1,9 +1,9 @@
 // Jenkins job "client-firewall-form": add or change a client and its firewall rules from a form.
 //
 //   Build with Parameters -> check the request and save the client's login as Jenkins credential
-//   client-<name> -> update inventory/hosts.yml + host_vars/<name>.yml -> lint -> plan -> dry run
-//   -> Pi-Compute clicks Apply -> push the commit to main -> Ansible applies on that client
-//   -> tag deployed-form-<build>.
+//   client-<name> -> update inventory/hosts.yml + host_vars/<name>.yml -> lint -> plan
+//   -> firewall status -> dry run -> Pi-Compute clicks Apply -> enable + start the firewall if it is off
+//   -> push the commit to main -> Ansible applies the rules on that client -> tag deployed-form-<build>.
 //
 // This script is the job's own (admin-approved, not sandboxed) pipeline: saving a credential needs
 // the Jenkins API. Keep this file and the job in sync: jenkins/README.md says how.
@@ -196,6 +196,18 @@ Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>''')
       }
     }
 
+    // Is the client's firewall enabled and running? Reports only.
+    stage('Firewall status') {
+      when { expression { !env.FW_NOCHANGE } }
+      steps {
+        dir('repo') {
+          withClientCreds {
+            sh 'ansible-playbook playbooks/firewall_service.yml --private-key "$SSH_KEY" -l "$FW_NAME" -e fw_service_mode=check'
+          }
+        }
+      }
+    }
+
     stage('Dry run') {
       when { expression { !env.FW_NOCHANGE } }
       steps {
@@ -222,6 +234,19 @@ Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>''')
       }
     }
 
+    // Firewall off or stopped: add the management rules, enable it at boot, start it.
+    // Before the push, so a failure here leaves main unchanged.
+    stage('Enable firewall') {
+      when { expression { !env.FW_NOCHANGE } }
+      steps {
+        dir('repo') {
+          withClientCreds {
+            sh 'ANSIBLE_LOG_PATH=apply.log ansible-playbook playbooks/firewall_service.yml --private-key "$SSH_KEY" -l "$FW_NAME" -e fw_service_mode=ensure'
+          }
+        }
+      }
+    }
+
     stage('Push to GitHub') {
       when { expression { !env.FW_NOCHANGE } }
       steps {
@@ -230,14 +255,14 @@ Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>''')
             try {
               gitAuth('push -q origin HEAD:main')
             } catch (e) {
-              error "Push to main failed (${e.message}). Usually main changed on GitHub while this build waited. Nothing was applied; run the form again."
+              error "Push to main failed (${e.message}). Usually main changed on GitHub while this build waited. No rules were changed; run the form again."
             }
           }
         }
       }
     }
 
-    stage('Apply') {
+    stage('Update firewall rules') {
       when { expression { !env.FW_NOCHANGE } }
       steps {
         dir('repo') {

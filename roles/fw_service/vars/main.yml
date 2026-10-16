@@ -1,0 +1,3 @@
+---
+# Which firewall this host runs: status_<type>.yml / enable_<type>.yml
+fw_service_type: "{{ {'Debian': 'ufw', 'RedHat': 'firewalld', 'Windows': 'windows'}[ansible_os_family] }}"

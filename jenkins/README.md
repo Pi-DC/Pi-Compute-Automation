@@ -2,8 +2,13 @@
 
 | Job | Defined by | What it does |
 |---|---|---|
-| `os-firewall` (multibranch) | `Jenkinsfile` | PRs: lint, plan, dry run. `main`: approval check, Apply, tag `deployed-N` |
-| `client-firewall-form` | `client-firewall-form.groovy` (stored in the job) | Form: add/change one client and its rules, Apply, tag `deployed-form-N` |
+| `os-firewall` (multibranch) | `Jenkinsfile` | PRs: lint, plan, firewall status, dry run. `main`: firewall status, approval check, Apply, enable firewall, update rules, tag `deployed-N` |
+| `client-firewall-form` | `client-firewall-form.groovy` (stored in the job) | Form: add/change one client, firewall status, dry run, Apply, enable firewall, update rules, tag `deployed-form-N` |
+
+Both jobs check the firewall on the hosts they change before touching rules. If it is disabled or stopped
+(UFW inactive, firewalld stopped/masked, Windows MpsSvc stopped or a profile off), stage **Enable firewall**
+allows the protected management access (SSH / WinRM / RDP), enables the firewall at boot and starts it, and
+fails the build before any rule change if that does not work.
 
 `client-firewall-form` runs its pipeline from the job configuration, not from git, because saving the
 client login as a Jenkins credential needs the Jenkins API (not allowed in the Groovy sandbox). Only Jenkins

@@ -1,0 +1,20 @@
+---
+# Management SSH first: UFW keeps its rules while disabled, and denies incoming once enabled.
+- name: Protected management SSH (before UFW is switched on)
+  community.general.ufw:
+    rule: allow
+    proto: tcp
+    port: "{{ fw_ssh_port | default(22) | string }}"
+    from_ip: "{{ item }}"
+    comment: "managed-by-ansible: MGMT-SSH"
+  loop: "{{ fw_mgmt_sources }}"
+
+- name: Switch UFW on
+  community.general.ufw:
+    state: enabled
+
+- name: UFW starts at boot
+  ansible.builtin.systemd:
+    name: ufw
+    enabled: true
+    state: started
