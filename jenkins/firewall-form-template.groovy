@@ -144,7 +144,6 @@ pipeline {
             if (JOB_ACTION == 'open') {
               what = '--os "$OS_TYPE" --add ../rules.txt'
               if (JOB_FAMILY == 'linux' && params.SSH_PORT) { what += ' --ssh-port "$SSH_PORT"' }
-              if (JOB_FAMILY == 'windows' && params.RDP_PORT) { what += ' --rdp-port "$RDP_PORT"' }
             }
             def rc = sh(returnStatus: true, script: '''
               git config user.name pi-jenkins && git config user.email jenkins@pi-dc.local

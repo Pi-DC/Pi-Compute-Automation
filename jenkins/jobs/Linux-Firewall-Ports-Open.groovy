@@ -94,8 +94,8 @@ pipeline {
     choice(name: 'OS_TYPE', choices: ['Ubuntu-24', 'Ubuntu-22', 'RedHat-9', 'CentOS-7'], description: 'Operating system of the client (must match the inventory for a known client)')
     string(name: 'CLIENT_USERNAME', defaultValue: '', trim: true, description: 'Login user (SSH user with sudo). Empty with empty password = use the saved login.')
     password(name: 'CLIENT_PASSWORD', defaultValue: '', description: 'Password for that user. Tested in Stage 2, then saved only in Jenkins (credential client-&lt;name&gt;), never in git. Empty = use the saved one.')
-    string(name: 'SSH_PORT', defaultValue: '', trim: true, description: 'Port the SSH server listens on (Ansible connects here; always allowed from the management network). Empty = keep the client\'s current port (22 for a new client).')
-    text(name: 'RULES_ADD', defaultValue: '', description: 'Firewall rules to OPEN. One rule per line: <code>SOURCE  DESTINATION  PORTS  [tcp|udp]  [comment]</code><br>SOURCE / DESTINATION = <code>any</code>, an IP or a CIDR. PORTS = <code>443</code>, <code>8000-8010</code> or <code>80,443</code>. Protocol defaults to tcp.<br>Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>')
+    string(name: 'SSH_PORT', defaultValue: '', trim: true, description: 'Port the SSH server listens on; Ansible connects here. Empty = keep the client\'s current port (22 for a new client).')
+    text(name: 'RULES_ADD', defaultValue: '', description: 'Firewall rules to OPEN. One rule per line: <code>SOURCE  DESTINATION  PORTS  [tcp|udp]  [comment]</code><br>SOURCE / DESTINATION = <code>any</code>, an IP or a CIDR. PORTS = <code>443</code>, <code>8000-8010</code> or <code>80,443</code>. Protocol defaults to tcp.<br>Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code><br>No rule is added by default. The client\'s rules must allow the Jenkins agent 172.20.119.105 to reach its SSH port (a new client needs that rule here, e.g. <code>172.20.119.105 any 22 tcp Jenkins</code>), or the build stops at Plan.')
     string(name: 'REVIEWERS', defaultValue: '', trim: true, description: 'Optional: more GitHub users to review the pull request, comma-separated. Pi-KiranRaja is always asked. Every reviewer must approve before the merge.')
   }
   stages {
@@ -151,7 +151,6 @@ pipeline {
             if (JOB_ACTION == 'open') {
               what = '--os "$OS_TYPE" --add ../rules.txt'
               if (JOB_FAMILY == 'linux' && params.SSH_PORT) { what += ' --ssh-port "$SSH_PORT"' }
-              if (JOB_FAMILY == 'windows' && params.RDP_PORT) { what += ' --rdp-port "$RDP_PORT"' }
             }
             def rc = sh(returnStatus: true, script: '''
               git config user.name pi-jenkins && git config user.email jenkins@pi-dc.local

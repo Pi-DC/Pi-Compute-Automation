@@ -1,15 +1,15 @@
 ---
-# firewalld starts with its saved (permanent) rules. The default zone allows only SSH on port 22, so a
-# host that never had the management rule would close a non-standard SSH port (and Ansible's next
-# connection) the moment firewalld starts. Save the rule first, with the daemon stopped.
-- name: Protected management SSH in the saved rules, before firewalld starts
+# firewalld starts with its saved (permanent) rules. Save this host's rules first, with the daemon
+# stopped, so it starts with exactly them (they include Ansible's access, scripts/access_check.py).
+# The default zone's own "ssh" service is closed afterwards by fw_linux_firewalld.
+- name: This host's rules in the saved configuration, before firewalld starts
   ansible.builtin.shell: |
-    rule='rule family="ipv4" source address="{{ item }}" port port="{{ fw_ssh_port | default(22) }}" protocol="tcp" accept'
+    rule='{{ fw_firewalld_rich_rule }}'
     firewall-offline-cmd --query-rich-rule="$rule" >/dev/null && exit 0
     firewall-offline-cmd --add-rich-rule="$rule" && echo ADDED
   register: fw_service_offline_rule
   changed_when: "'ADDED' in fw_service_offline_rule.stdout"
-  loop: "{{ fw_mgmt_sources }}"
+  loop: "{{ fw_host_rules }}"
   when: not fw_service_state.running
 
 - name: Unmask, enable at boot and start firewalld
@@ -18,12 +18,3 @@
     masked: false
     enabled: true
     state: started
-
-# Already in the saved rules if added above; this also covers a firewalld that was running.
-- name: Protected management SSH
-  ansible.posix.firewalld:
-    rich_rule: 'rule family="ipv4" source address="{{ item }}" port port="{{ fw_ssh_port | default(22) }}" protocol="tcp" accept'
-    permanent: true
-    immediate: true
-    state: enabled
-  loop: "{{ fw_mgmt_sources }}"

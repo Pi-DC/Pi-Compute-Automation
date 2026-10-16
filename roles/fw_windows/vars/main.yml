@@ -1,6 +1,0 @@
----
-# Name of the Windows rule for a plan item (evaluated per loop item). A destination other than
-# "any" is part of the name, so rules that differ only in destination do not overwrite each other.
-fw_windows_rule_name: >-
-  ANS-{{ item.proto | upper }}-{{ item.port }}-{{ item.src | replace('/', '_') }}{{
-  ('-TO-' ~ (item.dst | replace('/', '_'))) if item.dst | default('any') != 'any' else '' }}

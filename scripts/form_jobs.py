@@ -26,6 +26,9 @@ JOBS = {
     "Windows-Firewall-Remove": ("windows", "remove", "windows-remove", "Remove firewall rules from a known Windows client."),
 }
 
+# No rule is added by default: the client's rules must let the Jenkins agent reach its connection port.
+ACCESS = {"linux": "its SSH port", "windows": "WinRM port 5986"}
+
 RULE_FORMAT = ("One rule per line: <code>SOURCE  DESTINATION  PORTS  [tcp|udp]  [comment]</code><br>"
                "SOURCE / DESTINATION = <code>any</code>, an IP or a CIDR. PORTS = <code>443</code>, <code>8000-8010</code> "
                "or <code>80,443</code>. Protocol defaults to tcp.")
@@ -49,16 +52,18 @@ def params(family, action):
          "(credential client-&lt;name&gt;), never in git. Empty = use the saved one.", None),
     ]
     if action == "open" and family == "linux":
-        p.append(("string", "SSH_PORT", "", "Port the SSH server listens on (Ansible connects here; always allowed from the management network). "
+        p.append(("string", "SSH_PORT", "", "Port the SSH server listens on; Ansible connects here. "
                   "Empty = keep the client's current port (22 for a new client).", None))
-    if action == "open" and family == "windows":
-        p.append(("string", "RDP_PORT", "", "RDP port allowed from the admin subnet. Empty = keep the client's current port (3389 for a new client).", None))
     if action == "open":
         p.append(("text", "RULES_ADD", "", "Firewall rules to OPEN. " + RULE_FORMAT
-                  + "<br>Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>", None))
+                  + "<br>Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>"
+                  + f"<br>No rule is added by default. The client's rules must allow the Jenkins agent 172.20.119.105 to reach {ACCESS[family]} "
+                  + "(a new client needs that rule here, e.g. <code>172.20.119.105 any "
+                  + ("22" if family == "linux" else "5986") + " tcp Jenkins</code>), or the build stops at Plan.", None))
     else:
         p.append(("text", "RULES_REMOVE", "", "Firewall rules to REMOVE (each must exist on this client). " + RULE_FORMAT
-                  + "<br>Example: <code>172.20.120.0/24 any 443 tcp</code>", None))
+                  + "<br>Example: <code>172.20.120.0/24 any 443 tcp</code>"
+                  + f"<br>Removing the last rule that lets the Jenkins agent 172.20.119.105 reach {ACCESS[family]} is refused at Plan.", None))
     p.append(("string", "REVIEWERS", "", "Optional: more GitHub users to review the pull request, comma-separated. "
               "Pi-KiranRaja is always asked. Every reviewer must approve before the merge.", None))
     return p

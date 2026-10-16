@@ -19,6 +19,14 @@
         quiet: true
       run_once: true
 
+    # Switching a firewall on adds these first (fw_service enable_*), so it starts with exactly this
+    # host's rules, which include Ansible's access (scripts/access_check.py). No rule is added by default.
+    - name: This host's rules (baseline + host_vars)
+      ansible.builtin.set_fact:
+        fw_host_rules: >-
+          {{ ((lookup('ansible.builtin.file', playbook_dir ~ '/../baselines/' ~ os_baseline ~ '.yml') | from_yaml).fw_rules | default([], true))
+          + ((lookup('ansible.builtin.file', playbook_dir ~ '/../host_vars/' ~ inventory_hostname ~ '.yml') | from_yaml).fw_rules | default([], true)) }}
+
   roles:
     - role: fw_service
 
