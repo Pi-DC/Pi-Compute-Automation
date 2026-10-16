@@ -1,13 +1,13 @@
 // Jenkins job "pr-auto-merge" (Pipeline from SCM: this file on main).
-// Every 2 minutes: merge each open PR whose Jenkins PR build is SUCCESS and that an approver
+// Every minute (the shortest Jenkins schedule): merge each open PR whose Jenkins PR build is SUCCESS and that an approver
 // (FW_APPROVERS in the Jenkinsfile) approved on its final commit. Rules: scripts/auto_merge.py.
 // Merging applies nothing: the os-firewall main build still waits for the Apply click.
 pipeline {
   agent { label 'ansible' }
-  triggers { cron('H/2 * * * *') }
+  triggers { cron('* * * * *') }
   options {
     disableConcurrentBuilds()
-    buildDiscarder(logRotator(numToKeepStr: '300'))
+    buildDiscarder(logRotator(numToKeepStr: '200'))
     timeout(time: 10, unit: 'MINUTES')
   }
   stages {

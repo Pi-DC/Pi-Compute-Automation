@@ -28,6 +28,8 @@ def REPO       = 'Pi-DC/os-firewall-automation'
 def REPO_URL   = "https://github.com/${REPO}.git"
 def REVIEWER   = 'Pi-KiranRaja'   // always asked to review; must be in FW_APPROVERS in the Jenkinsfile
 def REVIEW_HOURS = 24
+def POLL_SECONDS = 10           // Stage 4: how often the PR is checked; merges within this time of the approval
+def REPO_JOB     = 'os-firewall' // multibranch job that builds the PRs
 def JOB_FAMILY = 'linux'   // linux | windows: clients of the other family are refused
 def JOB_ACTION = 'open'   // open: RULES_ADD only | remove: RULES_REMOVE only, known clients only
 def JOB_SLUG   = 'linux-open'     // in branch, tag and credential names, unique per job
@@ -76,6 +78,14 @@ def forgetPassword(build) {
   }
   build.replaceAction(new hudson.model.ParametersAction(values))
   build.save()
+}
+
+// Scan the repository job now (instead of at its next 2-minute scan), so the PR build Stage 4 waits for starts at once.
+@NonCPS
+def scanRepoJob(String job, build) {
+  def item = Jenkins.get().getItemByFullName(job)
+  if (item) { item.scheduleBuild(0, new hudson.model.Cause.UpstreamCause(build)) }
+  return item != null
 }
 
 @NonCPS
@@ -284,6 +294,7 @@ ${plan}
               ''').trim()
             }
             echo "Pull request: https://github.com/${REPO}/pull/${env.FW_PR} (review requested from ${env.FW_REVIEWERS})"
+            if (scanRepoJob(REPO_JOB, currentBuild.rawBuild)) { echo "Started a scan of ${REPO_JOB}: its PR build for #${env.FW_PR} starts now." }
           }
         }
       }
@@ -293,7 +304,7 @@ ${plan}
     stage('Stage 4 - Approve and merge') {
       steps {
         script {
-          echo "Waiting up to ${REVIEW_HOURS} h for https://github.com/${REPO}/pull/${env.FW_PR}: Jenkins PR build SUCCESS and approval by ${env.FW_REVIEWERS}."
+          echo "Checking every ${POLL_SECONDS} s, up to ${REVIEW_HOURS} h: waiting for https://github.com/${REPO}/pull/${env.FW_PR}: Jenkins PR build SUCCESS and approval by ${env.FW_REVIEWERS}."
           def last = ''
           timeout(time: REVIEW_HOURS, unit: 'HOURS') {
             while (!env.FW_MERGE_SHA) {
@@ -315,7 +326,7 @@ Fw-Form-Build: $BUILD_URL" > ../check.txt 2>&1
               if (out != last) { echo out; last = out }
               if (rc == 20) { error "Not merged: ${out}. Nothing was applied." }
               if (rc != 0 && rc != 10) { error "Checking the pull request failed: ${out}" }
-              if (!env.FW_MERGE_SHA) { sleep(time: 60, unit: 'SECONDS') }
+              if (!env.FW_MERGE_SHA) { sleep(time: POLL_SECONDS, unit: 'SECONDS') }
             }
           }
           echo "Merged to main as ${env.FW_MERGE_SHA.take(7)}."
