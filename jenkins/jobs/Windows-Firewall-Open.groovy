@@ -91,10 +91,10 @@ pipeline {
   parameters {
     string(name: 'CLIENT_IP', defaultValue: '', trim: true, description: 'IP address of the client, e.g. 172.20.119.111')
     string(name: 'CLIENT_NAME', defaultValue: '', trim: true, description: 'Optional short name (lowercase, digits, -). Use the same name every time for the same client. Empty = client-&lt;IP with dashes&gt;.')
-    choice(name: 'OS_TYPE', choices: ['Windows-2022', 'Windows-2019'], description: 'Operating system of the client')
+    choice(name: 'OS_TYPE', choices: ['Windows-2022', 'Windows-2019'], description: 'Operating system of the client (must match the inventory for a known client)')
     string(name: 'CLIENT_USERNAME', defaultValue: '', trim: true, description: 'Login user (local or DOMAIN\\user admin for WinRM). Empty with empty password = use the saved login.')
     password(name: 'CLIENT_PASSWORD', defaultValue: '', description: 'Password for that user. Tested in Stage 2, then saved only in Jenkins (credential client-&lt;name&gt;), never in git. Empty = use the saved one.')
-    string(name: 'RDP_PORT', defaultValue: '3389', trim: true, description: 'RDP port allowed from the admin subnet.')
+    string(name: 'RDP_PORT', defaultValue: '', trim: true, description: 'RDP port allowed from the admin subnet. Empty = keep the client\'s current port (3389 for a new client).')
     text(name: 'RULES_ADD', defaultValue: '', description: 'Firewall rules to OPEN. One rule per line: <code>SOURCE  DESTINATION  PORTS  [tcp|udp]  [comment]</code><br>SOURCE / DESTINATION = <code>any</code>, an IP or a CIDR. PORTS = <code>443</code>, <code>8000-8010</code> or <code>80,443</code>. Protocol defaults to tcp.<br>Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>')
     string(name: 'REVIEWERS', defaultValue: '', trim: true, description: 'Optional: more GitHub users to review the pull request, comma-separated. Pi-KiranRaja is always asked. Every reviewer must approve before the merge.')
   }
@@ -146,9 +146,13 @@ pipeline {
         dir('repo') {
           script {
             env.FW_BASE_SHA = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
-            // Open: OS and port from the form. Remove: the client's current values from the inventory.
-            def what = JOB_ACTION == 'remove' ? '--existing --remove ../rules.txt' :
-                       '--os "$OS_TYPE" ' + (JOB_FAMILY == 'linux' ? '--ssh-port "$SSH_PORT"' : '--rdp-port "$RDP_PORT"') + ' --add ../rules.txt'
+            // Open: OS and (if given) port from the form. Remove, or an empty port: the client's current values.
+            def what = '--existing --remove ../rules.txt'
+            if (JOB_ACTION == 'open') {
+              what = '--os "$OS_TYPE" --add ../rules.txt'
+              if (JOB_FAMILY == 'linux' && params.SSH_PORT) { what += ' --ssh-port "$SSH_PORT"' }
+              if (JOB_FAMILY == 'windows' && params.RDP_PORT) { what += ' --rdp-port "$RDP_PORT"' }
+            }
             def rc = sh(returnStatus: true, script: '''
               git config user.name pi-jenkins && git config user.email jenkins@pi-dc.local
               python3 scripts/form_change.py --family ''' + JOB_FAMILY + ''' --name "$FW_NAME" --ip "$FW_IP" \
@@ -171,6 +175,7 @@ pipeline {
             ''').trim().tokenize(' ')
             env.FW_OS = hv[0]
             env.FW_SSH_PORT = hv[1]
+            echo "${env.FW_NAME}: OS ${env.FW_OS}" + (JOB_FAMILY == 'linux' ? ", SSH port ${env.FW_SSH_PORT}" : '')
           }
           sh 'ansible-galaxy collection install -r collections/requirements.yml -p ./collections'
           sh 'yamllint . && ansible-lint playbooks roles && bash scripts/no_package_installs.sh && python3 scripts/form_jobs.py --check'
@@ -197,7 +202,7 @@ pipeline {
           if ssh-keygen -F "$HN" -f "$KH" >/dev/null; then
             echo "Host key for $HN already known:"
           else
-            ssh-keyscan -T 10 -p "$FW_SSH_PORT" "$FW_IP" 2>/dev/null > keyscan.txt
+            ssh-keyscan -T 10 -p "$FW_SSH_PORT" "$FW_IP" 2>/dev/null > keyscan.txt || true
             [ -s keyscan.txt ] || { echo "ERROR: no SSH server answered on $FW_IP:$FW_SSH_PORT"; exit 1; }
             cat keyscan.txt >> "$KH"
             echo "First connection to $HN: recorded its host keys. Check these fingerprints if in doubt:"

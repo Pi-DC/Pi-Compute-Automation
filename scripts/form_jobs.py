@@ -41,7 +41,7 @@ def params(family, action):
          + "Empty = client-&lt;IP with dashes&gt;.", None),
     ]
     if action == "open":
-        p.append(("choice", "OS_TYPE", None, "Operating system of the client", OS_CHOICES[family]))
+        p.append(("choice", "OS_TYPE", None, "Operating system of the client (must match the inventory for a known client)", OS_CHOICES[family]))
     who = "SSH user with sudo" if family == "linux" else "local or DOMAIN\\user admin for WinRM"
     p += [
         ("string", "CLIENT_USERNAME", "", f"Login user ({who}). Empty with empty password = use the saved login.", None),
@@ -49,9 +49,10 @@ def params(family, action):
          "(credential client-&lt;name&gt;), never in git. Empty = use the saved one.", None),
     ]
     if action == "open" and family == "linux":
-        p.append(("string", "SSH_PORT", "22", "Port the SSH server listens on (Ansible connects here; always allowed from the management network).", None))
+        p.append(("string", "SSH_PORT", "", "Port the SSH server listens on (Ansible connects here; always allowed from the management network). "
+                  "Empty = keep the client's current port (22 for a new client).", None))
     if action == "open" and family == "windows":
-        p.append(("string", "RDP_PORT", "3389", "RDP port allowed from the admin subnet.", None))
+        p.append(("string", "RDP_PORT", "", "RDP port allowed from the admin subnet. Empty = keep the client's current port (3389 for a new client).", None))
     if action == "open":
         p.append(("text", "RULES_ADD", "", "Firewall rules to OPEN. " + RULE_FORMAT
                   + "<br>Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>", None))

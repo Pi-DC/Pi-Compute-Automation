@@ -157,6 +157,9 @@ def main():
     if a.existing and hostvars.get("ansible_host") != ip:
         fail(f"{name} has IP {hostvars.get('ansible_host')} in the inventory, not {ip}")
 
+    if a.os and hostvars.get("os_baseline") and a.os != hostvars["os_baseline"]:
+        fail(f"{name} is {hostvars['os_baseline']} in the inventory, not {a.os}: choose {hostvars['os_baseline']} "
+             "(if the client was reinstalled, change os_baseline in inventory/hosts.yml through a pull request)")
     os_type = a.os or hostvars.get("os_baseline")
     if not os_type:
         fail(f"{name} is a new client: choose its OS")
