@@ -5,8 +5,8 @@
 
 // ---- CHANGE THESE THREE VALUES ----------------------------------------------------------
 def REPO             = 'Pi-DC/os-firewall-automation'
-def FW_APPROVERS     = 'CHANGE-ME-admin-github-username'   // GitHub user(s) who may approve PRs, comma-separated
-def JENKINS_APPROVER = 'CHANGE-ME-admin-jenkins-userid'    // Jenkins user ID(s) who may click Apply
+def FW_APPROVERS     = 'Pi-KiranRaja'                      // GitHub user(s) who may approve PRs, comma-separated
+def JENKINS_APPROVER = 'Pi-Compute'                        // Jenkins user ID(s) who may click Apply
 // ------------------------------------------------------------------------------------------
 
 def withFwCreds(Closure body) {
