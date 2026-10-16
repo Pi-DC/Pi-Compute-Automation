@@ -2,7 +2,7 @@
 
 | Job | Defined by | What it does |
 |---|---|---|
-| `os-firewall` (multibranch) | `Jenkinsfile` | PRs: lint, plan, firewall status, dry run. `main`: firewall status, approval check, Apply, enable firewall, update rules, tag `deployed-N` |
+| `Pi-Compute-Automation` (multibranch) | `Jenkinsfile` | PRs: lint, plan, firewall status, dry run. `main`: firewall status, approval check, Apply, enable firewall, update rules, tag `deployed-N` |
 | `Pi-PR-Auto-Merge` | `pr-auto-merge.Jenkinsfile` (Pipeline from SCM, main) | Every minute: merges open PRs whose Jenkins PR build is SUCCESS and that an approver approved on the final commit. Applies nothing |
 | `Pi-Linux-Systems-OSFW-Add`, `Pi-Linux-Systems-OSFW-Remove`, `Pi-Windows-Systems-OSFW-Add`, `Pi-Windows-Systems-OSFW-Remove` | `jobs/<job>.groovy` (stored in the job) | Forms, 6 stages each: request, login check, push + PR with reviewers, approval + merge, apply, result (rollback on failure) |
 

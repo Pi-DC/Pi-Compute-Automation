@@ -24,12 +24,12 @@ import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl
 import hudson.security.ACL
 import jenkins.model.Jenkins
 
-def REPO       = 'Pi-DC/os-firewall-automation'
+def REPO       = 'Pi-DC/Pi-Compute-Automation'
 def REPO_URL   = "https://github.com/${REPO}.git"
 def REVIEWER   = 'Pi-KiranRaja'   // always asked to review; must be in FW_APPROVERS in the Jenkinsfile
 def REVIEW_HOURS = 24
 def POLL_SECONDS = 10           // Stage 4: how often the PR is checked; merges within this time of the approval
-def REPO_JOB     = 'os-firewall' // multibranch job that builds the PRs
+def REPO_JOB     = 'Pi-Compute-Automation' // multibranch job that builds the PRs
 def JOB_FAMILY = 'linux'   // linux | windows: clients of the other family are refused
 def JOB_ACTION = 'open'   // open: RULES_ADD only | remove: RULES_REMOVE only, known clients only
 def JOB_SLUG   = 'linux-open'     // in branch, tag and credential names, unique per job
@@ -354,7 +354,7 @@ Fw-Form-Build: $BUILD_URL" > ../check.txt 2>&1
               env.FW_OTHERS = others.join(',')
               if (others) {
                 echo "WARNING: other clients also have changes in git that are not deployed yet: ${env.FW_OTHERS}. " +
-                     'This build changes only ' + env.FW_NAME + '; deploy the others through the os-firewall main build.'
+                     'This build changes only ' + env.FW_NAME + '; deploy the others through the Pi-Compute-Automation main build.'
               }
               withClientCreds {
                 sh 'ANSIBLE_LOG_PATH=apply.log bash scripts/run-playbook.sh playbooks/firewall_service.yml "$FW_NAME" -e fw_service_mode=ensure'
@@ -391,7 +391,7 @@ Fw-Form-Build: $BUILD_URL" > ../check.txt 2>&1
             }
             echo "FAILED in Stage 5 (${env.FW_APPLY_FAILED}). Rolling back: revert PR #${env.FW_PR} on main, then apply the old rules."
             def problems = []
-            // 1. Old code back on main. The trailer keeps the os-firewall main build from applying it again.
+            // 1. Old code back on main. The trailer keeps the Pi-Compute-Automation main build from applying it again.
             gitAuth('fetch -q origin main')
             def rc = sh(returnStatus: true, script: '''
               git checkout -q -B rollback origin/main

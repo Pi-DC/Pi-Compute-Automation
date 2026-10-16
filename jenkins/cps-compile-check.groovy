@@ -6,7 +6,7 @@ import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.customizers.ImportCustomizer
 def cl = jenkins.model.Jenkins.get().pluginManager.uberClassLoader
 def T = cl.loadClass('com.cloudbees.groovy.cps.CpsTransformer')
-new File(System.getenv('FW_CPS_DIR') ?: '/opt/jenkinscode/os-firewall-automation/jenkins/jobs').eachFileMatch(~/.*\.groovy/) { f ->
+new File(System.getenv('FW_CPS_DIR') ?: '/opt/jenkinscode/Pi-Compute-Automation/jenkins/jobs').eachFileMatch(~/.*\.groovy/) { f ->
   def cc = new CompilerConfiguration(); def ic = new ImportCustomizer(); ic.addImports('com.cloudbees.groovy.cps.NonCPS')
   cc.addCompilationCustomizers(ic, T.newInstance())
   try { new GroovyShell(cl, new Binding(), cc).parse(f.text, 'WorkflowScript'); println "${f.name}: CPS compile OK" }
