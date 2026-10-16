@@ -2,3 +2,5 @@
 # Firewall rules for zabbix-ssl. Edit through the Jenkins form or a pull request.
 fw_rules:
   - {port: 59222, proto: tcp, src: any, dst: 172.20.119.51/32, comment: "ssh"}
+  - {port: 80, proto: tcp, src: 172.20.120.0/24, dst: any, comment: "Web from app subnet"}
+  - {port: 443, proto: tcp, src: 172.20.120.0/24, dst: any, comment: "Web from app subnet"}
