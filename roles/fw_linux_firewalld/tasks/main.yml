@@ -8,6 +8,17 @@
     enabled: true
   register: fw_linux_firewalld_start
 
+# firewalld 0.6+ (CentOS 7, RHEL 8) warns "AllowZoneDrifting is enabled. This is considered an insecure
+# configuration option". No rule here uses source-based zones, so turning it off changes no rule.
+# Only an existing line is changed: newer firewalld (RHEL 9) has no such option, and nothing is added there.
+- name: AllowZoneDrifting off
+  ansible.builtin.lineinfile:
+    path: "{{ fw_linux_firewalld_conf }}"
+    regexp: '^AllowZoneDrifting=(?!no$)'
+    line: AllowZoneDrifting=no
+    backrefs: true
+  notify: Reload firewalld
+
 # A dry run (--check) cannot start firewalld, and firewalld cannot preview rules while it is stopped.
 - name: Firewall is off, so the dry run cannot show the rule changes
   ansible.builtin.debug:

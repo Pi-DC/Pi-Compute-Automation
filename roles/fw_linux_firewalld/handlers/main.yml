@@ -1,0 +1,5 @@
+---
+# Reload = apply the saved configuration again. Every rule is saved (permanent), so the rules stay the same.
+- name: Reload firewalld
+  ansible.builtin.command: firewall-cmd --reload
+  changed_when: true
