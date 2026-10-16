@@ -18,10 +18,17 @@ OS firewall rules for client VMs, managed as code. Linux: UFW (Ubuntu) / firewal
 
 Direct pushes to `main` are refused by Jenkins (GitHub Free cannot block them for private repos).
 
-### Or: the Jenkins form (job `client-firewall-form`)
+### Or: the Jenkins form jobs
 
-**Build with Parameters**, fill in the client (IP, name, OS, login, SSH/RDP port), the rules to add or remove
-and optionally more GitHub reviewers, click **Build**. Six stages:
+| Job | What it does |
+|---|---|
+| `Linux-Firewall-Ports-Open` | Opens ports (adds rules) on a Linux client; adds the client if it is new (IP, name, OS, login, SSH port) |
+| `Linux-Firewall-Ports-Remove` | Removes rules from a known Linux client (OS and SSH port come from the inventory) |
+| `Windows-Firewall-Open` | Opens ports on a Windows client; adds the client if it is new (IP, name, OS, login, RDP port) |
+| `Windows-Firewall-Remove` | Removes rules from a known Windows client |
+
+A Linux job refuses a Windows client and the other way round. **Build with Parameters**, fill in the form
+(optionally more GitHub reviewers), click **Build**. Each job runs the same six stages:
 
 1. **Request**: checks the form, writes the change to `inventory/hosts.yml` + `host_vars/<name>.yml`, lint, plan.
 2. **Login**: logs in to the client with the given details (Linux: SSH + sudo, Windows: WinRM). Only if that
@@ -52,7 +59,7 @@ The `main` build skips commits with the trailer `Fw-Form-Build:`, because the fo
 | `scripts/form_pr.py`, `scripts/rollback_plan.sh` | Form job: PR, reviewers, merge; old rules after a failed apply |
 | `playbooks/login_check.yml` | Form job Stage 2: can Ansible log in? Changes nothing |
 | `scripts/run-playbook.sh` | Runs a playbook on the given hosts; CentOS 7 hosts with the older Ansible (below) |
-| `jenkins/client-firewall-form.groovy` | Pipeline of the `client-firewall-form` job |
+| `jenkins/firewall-form-template.groovy`, `jenkins/jobs/` | Pipelines of the four form jobs: `scripts/form_jobs.py` generates `jobs/` from the template |
 | `playbooks/firewall.yml` | Applies the planned rule changes |
 | `playbooks/firewall_service.yml` | Checks (`fw_service_mode=check`) or enables + starts (`ensure`) the firewall itself |
 | `roles/` | Linux UFW, Linux firewalld, Windows firewall rules; `fw_service`: firewall on/off |

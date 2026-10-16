@@ -10,7 +10,7 @@ A PR is ready (pr_status) only when all of these hold:
   4. GitHub can merge it without conflicts.
 The merge is pinned to the checked commit, so a push after the checks is not merged. Merging changes no
 firewall: the main build still waits for the Apply click.
-Branches form/* belong to the client-firewall-form job, which merges and applies them itself.
+Branches form/* belong to the firewall form jobs (jenkins/jobs/), which merge and apply them themselves.
 
 Env: GH_TOKEN, GITHUB_REPOSITORY (org/repo). FW_APPROVERS defaults to the value in the Jenkinsfile.
 """
@@ -98,7 +98,7 @@ def main():
     for pr in prs:
         tag = f"PR #{pr['number']} ({pr['head']['ref']} @ {pr['head']['sha'][:7]}, by {pr['user']['login']})"
         if pr["head"]["ref"].startswith("form/"):
-            print(f"{tag}: skipped, the client-firewall-form job merges and applies it")
+            print(f"{tag}: skipped, its firewall form job merges and applies it")
             continue
         state, msg = pr_status(pr)
         if state != "ready":

@@ -1,6 +1,6 @@
 ---
 # Can Ansible log in with the given details? Linux: SSH + sudo to root. Windows: WinRM.
-# Changes nothing. Run only with -l <hosts>; the client-firewall-form job does this (stage 2).
+# Changes nothing. Run only with -l <hosts>; the firewall form jobs do this (Stage 2).
 - name: Login check
   hosts: all
   gather_facts: false

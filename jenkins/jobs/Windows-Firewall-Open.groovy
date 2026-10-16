@@ -1,20 +1,20 @@
-// Jenkins job "client-firewall-form": add or change a client and its firewall rules from a form.
+// Jenkins job "Windows-Firewall-Open": Open firewall ports (add rules) on a Windows client. Adds a new client if it is not known yet.
+//
+// GENERATED from jenkins/firewall-form-template.groovy by scripts/form_jobs.py: edit the template, run
+// `python3 scripts/form_jobs.py`, commit both. This script is the job's own (admin-approved, not sandboxed)
+// pipeline: saving a credential needs the Jenkins API. jenkins/README.md says how to update the job.
 //
 //   Stage 1 - Request          check the form, write the change (inventory + host_vars), lint, plan
-//   Stage 2 - Login            log in to the client with the given details (Linux: SSH + sudo, Windows:
-//                              WinRM); only then save them as Jenkins credential client-<name>;
-//                              report whether its firewall is enabled and running
-//   Stage 3 - Push and review  dry run, push branch form/<name>-<build>, open a PR, request review from
-//                              REVIEWER (+ the form's REVIEWERS)
+//   Stage 2 - Login            log in to the client (Linux: SSH + sudo, Windows: WinRM); only then save new
+//                              login details as Jenkins credential client-<name>; report the firewall status
+//   Stage 3 - Push and review  dry run, push branch form/<job>-<name>-<build>, open a PR, request review
+//                              from REVIEWER (+ the form's REVIEWERS)
 //   Stage 4 - Approve, merge   wait (without holding the agent) until the Jenkins PR build is SUCCESS and
 //                              every requested reviewer approved, then merge to main. Changes requested,
 //                              failed PR build or no approval in 24 h: close the PR, nothing is applied
-//   Stage 5 - Apply            enable + start the firewall if it is off, apply the rules, tag deployed-form-<build>
+//   Stage 5 - Apply            enable + start the firewall if it is off, apply the rules, tag deployed-<job>-<build>
 //   Stage 6 - Result           success, or if Stage 5 failed: revert the merge on main and apply the old
 //                              rules again (the firewall stays enabled), then fail the build
-//
-// This script is the job's own (admin-approved, not sandboxed) pipeline: saving a credential needs
-// the Jenkins API. Keep this file and the job in sync: jenkins/README.md says how.
 import com.cloudbees.plugins.credentials.CredentialsProvider
 import com.cloudbees.plugins.credentials.CredentialsScope
 import com.cloudbees.plugins.credentials.SystemCredentialsProvider
@@ -28,6 +28,9 @@ def REPO       = 'Pi-DC/os-firewall-automation'
 def REPO_URL   = "https://github.com/${REPO}.git"
 def REVIEWER   = 'Pi-KiranRaja'   // always asked to review; must be in FW_APPROVERS in the Jenkinsfile
 def REVIEW_HOURS = 24
+def JOB_FAMILY = 'windows'   // linux | windows: clients of the other family are refused
+def JOB_ACTION = 'open'   // open: RULES_ADD only | remove: RULES_REMOVE only, known clients only
+def JOB_SLUG   = 'windows-open'     // in branch, tag and credential names, unique per job
 
 @NonCPS
 def findLogin(String id) {
@@ -86,18 +89,13 @@ pipeline {
     buildDiscarder(logRotator(daysToKeepStr: '365'))
   }
   parameters {
-    string(name: 'CLIENT_IP', trim: true, description: 'IP address of the client system, e.g. 172.20.119.111')
-    string(name: 'CLIENT_NAME', trim: true, description: 'Optional short name (lowercase, digits, -). Empty = client-&lt;IP with dashes&gt;. Use the same name every time for the same client.')
-    choice(name: 'OS_TYPE', choices: ['Ubuntu-24', 'Ubuntu-22', 'RedHat-9', 'CentOS-7', 'Windows-2022', 'Windows-2019'], description: 'Operating system of the client')
-    string(name: 'CLIENT_USERNAME', trim: true, description: 'Login user. Linux: SSH user with sudo. Windows: local or DOMAIN\\user admin for WinRM. Empty with empty password = keep the saved login.')
-    password(name: 'CLIENT_PASSWORD', defaultValue: '', description: 'Password for that user. Tested in Stage 2, then saved only in Jenkins (credential client-&lt;name&gt;), never in git. Empty = keep the saved one.')
-    string(name: 'SSH_PORT', defaultValue: '22', trim: true, description: 'Linux: port the SSH server listens on (Ansible connects here; always allowed from the management network). Ignored for Windows.')
-    string(name: 'RDP_PORT', defaultValue: '3389', trim: true, description: 'Windows: RDP port allowed from the admin subnet. Ignored for Linux.')
-    text(name: 'RULES_ADD', defaultValue: '', description: '''Firewall rules to ADD, one per line:<br>
-<code>SOURCE  DESTINATION  PORTS  [tcp|udp]  [comment]</code><br>
-SOURCE / DESTINATION = <code>any</code>, an IP or a CIDR. PORTS = <code>443</code>, <code>8000-8010</code> or <code>80,443</code>. Protocol defaults to tcp.<br>
-Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>''')
-    text(name: 'RULES_REMOVE', defaultValue: '', description: 'Firewall rules to REMOVE, same format (SOURCE DESTINATION PORTS [proto]). The rule must exist on this client.')
+    string(name: 'CLIENT_IP', defaultValue: '', trim: true, description: 'IP address of the client, e.g. 172.20.119.111')
+    string(name: 'CLIENT_NAME', defaultValue: '', trim: true, description: 'Optional short name (lowercase, digits, -). Use the same name every time for the same client. Empty = client-&lt;IP with dashes&gt;.')
+    choice(name: 'OS_TYPE', choices: ['Windows-2022', 'Windows-2019'], description: 'Operating system of the client')
+    string(name: 'CLIENT_USERNAME', defaultValue: '', trim: true, description: 'Login user (local or DOMAIN\\user admin for WinRM). Empty with empty password = use the saved login.')
+    password(name: 'CLIENT_PASSWORD', defaultValue: '', description: 'Password for that user. Tested in Stage 2, then saved only in Jenkins (credential client-&lt;name&gt;), never in git. Empty = use the saved one.')
+    string(name: 'RDP_PORT', defaultValue: '3389', trim: true, description: 'RDP port allowed from the admin subnet.')
+    text(name: 'RULES_ADD', defaultValue: '', description: 'Firewall rules to OPEN. One rule per line: <code>SOURCE  DESTINATION  PORTS  [tcp|udp]  [comment]</code><br>SOURCE / DESTINATION = <code>any</code>, an IP or a CIDR. PORTS = <code>443</code>, <code>8000-8010</code> or <code>80,443</code>. Protocol defaults to tcp.<br>Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>')
     string(name: 'REVIEWERS', defaultValue: '', trim: true, description: 'Optional: more GitHub users to review the pull request, comma-separated. Pi-KiranRaja is always asked. Every reviewer must approve before the merge.')
   }
   stages {
@@ -111,7 +109,7 @@ Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>''')
           if (!(name ==~ /[a-z0-9][a-z0-9-]{0,62}/)) { error "CLIENT_NAME '${name}': use lowercase letters, digits and '-'" }
           env.FW_NAME = name
           env.FW_IP = ip
-          env.FW_IS_LINUX = params.OS_TYPE.startsWith('Windows') ? '' : 'yes'
+          env.FW_IS_LINUX = JOB_FAMILY == 'linux' ? 'yes' : ''
           env.FW_CRED_ID = "client-${name}"
           env.FW_CRED_ENV = 'FWCRED_' + name.toUpperCase().replaceAll('[^A-Z0-9]', '_')
           def causes = currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause')
@@ -130,21 +128,27 @@ Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>''')
           if (user && !pass) { error 'CLIENT_USERNAME given without CLIENT_PASSWORD: enter both to change the saved login, or neither to keep it' }
           if (!pass && !findLogin(env.FW_CRED_ID)) { error "No saved login for ${name}: enter CLIENT_USERNAME and CLIENT_PASSWORD" }
           env.FW_NEW_LOGIN = pass ? 'yes' : ''
-          currentBuild.description = "${name} (${ip}) ${params.OS_TYPE}, by ${env.FW_REQUESTER}"
+
+          def rules = (JOB_ACTION == 'open' ? params.RULES_ADD : params.RULES_REMOVE) ?: ''
+          if (!rules.readLines().any { it.trim() && !it.trim().startsWith('#') }) {
+            error "Enter at least one rule in ${JOB_ACTION == 'open' ? 'RULES_ADD' : 'RULES_REMOVE'}"
+          }
+          env.FW_RULES = rules
+          currentBuild.description = "${name} (${ip}) ${JOB_ACTION == 'open' ? 'open' : 'remove'} ports, by ${env.FW_REQUESTER}"
         }
         deleteDir()
         script { gitAuth("clone -q ${REPO_URL} repo") }
-        writeFile file: 'rules_add.txt', text: params.RULES_ADD ?: ''
-        writeFile file: 'rules_remove.txt', text: params.RULES_REMOVE ?: ''
+        writeFile file: 'rules.txt', text: env.FW_RULES
         dir('repo') {
           script {
             env.FW_BASE_SHA = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+            // Open: OS and port from the form. Remove: the client's current values from the inventory.
+            def what = JOB_ACTION == 'remove' ? '--existing --remove ../rules.txt' :
+                       '--os "$OS_TYPE" ' + (JOB_FAMILY == 'linux' ? '--ssh-port "$SSH_PORT"' : '--rdp-port "$RDP_PORT"') + ' --add ../rules.txt'
             def rc = sh(returnStatus: true, script: '''
               git config user.name pi-jenkins && git config user.email jenkins@pi-dc.local
-              python3 scripts/form_change.py --name "$FW_NAME" --ip "$FW_IP" --os "$OS_TYPE" \
-                --ssh-port "$SSH_PORT" --rdp-port "$RDP_PORT" --cred-id "$FW_CRED_ID" \
-                --add ../rules_add.txt --remove ../rules_remove.txt --requested-by "$FW_REQUESTER"
-            ''')
+              python3 scripts/form_change.py --family ''' + JOB_FAMILY + ''' --name "$FW_NAME" --ip "$FW_IP" \
+                --cred-id "$FW_CRED_ID" --requested-by "$FW_REQUESTER" ''' + what)
             if (rc == 10) {
               error 'Nothing to change: the client and its rules are already like this in main.'
             } else if (rc != 0) {
@@ -157,9 +161,15 @@ Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>''')
                 "$FW_NAME" "$FW_IP" "$FW_REQUESTER" "$BUILD_URL" | git commit -q -F -
               git log --oneline -1
             '''
+            def hv = sh(returnStdout: true, script: '''
+              ansible-inventory -i inventory/hosts.yml --host "$FW_NAME" |
+                python3 -c 'import sys,json; h=json.load(sys.stdin); print(h["os_baseline"], h.get("fw_ssh_port", 22))'
+            ''').trim().tokenize(' ')
+            env.FW_OS = hv[0]
+            env.FW_SSH_PORT = hv[1]
           }
           sh 'ansible-galaxy collection install -r collections/requirements.yml -p ./collections'
-          sh 'yamllint . && ansible-lint playbooks roles && bash scripts/no_package_installs.sh'
+          sh 'yamllint . && ansible-lint playbooks roles && bash scripts/no_package_installs.sh && python3 scripts/form_jobs.py --check'
           sh '''
             BASE=$(git describe --tags --abbrev=0 --match 'deployed-*' HEAD 2>/dev/null || true)
             echo "Last deployed: ${BASE:-none (Day 1)}"
@@ -179,12 +189,12 @@ Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>''')
         sh '''
           [ -n "$FW_IS_LINUX" ] || exit 0
           KH="$HOME/.ssh/known_hosts"; mkdir -p "$HOME/.ssh"; touch "$KH"
-          if [ "$SSH_PORT" = 22 ]; then HN="$FW_IP"; else HN="[$FW_IP]:$SSH_PORT"; fi
+          if [ "$FW_SSH_PORT" = 22 ]; then HN="$FW_IP"; else HN="[$FW_IP]:$FW_SSH_PORT"; fi
           if ssh-keygen -F "$HN" -f "$KH" >/dev/null; then
             echo "Host key for $HN already known:"
           else
-            ssh-keyscan -T 10 -p "$SSH_PORT" "$FW_IP" 2>/dev/null > keyscan.txt
-            [ -s keyscan.txt ] || { echo "ERROR: no SSH server answered on $FW_IP:$SSH_PORT"; exit 1; }
+            ssh-keyscan -T 10 -p "$FW_SSH_PORT" "$FW_IP" 2>/dev/null > keyscan.txt
+            [ -s keyscan.txt ] || { echo "ERROR: no SSH server answered on $FW_IP:$FW_SSH_PORT"; exit 1; }
             cat keyscan.txt >> "$KH"
             echo "First connection to $HN: recorded its host keys. Check these fingerprints if in doubt:"
           fi
@@ -195,7 +205,7 @@ Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>''')
             // New details are tested under a pending credential and replace the saved login only if they work.
             env.FW_LOGIN_ID = env.FW_CRED_ID
             if (env.FW_NEW_LOGIN) {
-              env.FW_LOGIN_ID = "${env.FW_CRED_ID}-pending-${env.BUILD_NUMBER}"
+              env.FW_LOGIN_ID = "${env.FW_CRED_ID}-pending-${JOB_SLUG}-${env.BUILD_NUMBER}"
               saveLogin(env.FW_LOGIN_ID, params.CLIENT_USERNAME, plainText(params.CLIENT_PASSWORD), "Being tested by ${env.BUILD_URL}")
             }
             try {
@@ -230,10 +240,11 @@ Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>''')
             sh 'bash scripts/run-playbook.sh playbooks/firewall.yml "$FW_NAME" --private-key "$SSH_KEY" --check --diff'
           }
           script {
-            env.FW_BRANCH = "form/${env.FW_NAME}-${env.BUILD_NUMBER}"
+            env.FW_BRANCH = "form/${JOB_SLUG}-${env.FW_NAME}-${env.BUILD_NUMBER}"
+            env.FW_TITLE = JOB_ACTION == 'open' ? "Open firewall ports on ${env.FW_NAME} (${env.FW_IP})" : "Remove firewall ports from ${env.FW_NAME} (${env.FW_IP})"
             gitAuth('push -q origin "HEAD:refs/heads/$FW_BRANCH"')
             def plan = readFile("plans/${env.FW_NAME}.yml").trim()
-            writeFile file: '../pr_body.md', text: """Firewall change for **${env.FW_NAME}** (${env.FW_IP}, ${params.OS_TYPE}), requested by **${env.FW_REQUESTER}** in [Jenkins build #${env.BUILD_NUMBER}](${env.BUILD_URL}).
+            writeFile file: '../pr_body.md', text: """${env.FW_TITLE}, ${env.FW_OS}: requested by **${env.FW_REQUESTER}** in [${env.JOB_NAME} #${env.BUILD_NUMBER}](${env.BUILD_URL}).
 
 Login, firewall status and dry run passed in that build. **Approve this PR to apply it**: Jenkins merges it once the PR build is green and every requested reviewer (${env.FW_REVIEWERS}) approved, then applies the rules to ${env.FW_NAME}. If applying fails, Jenkins reverts the merge and applies the old rules again.
 
@@ -245,7 +256,7 @@ ${plan}
             withGitHub(REPO) {
               env.FW_PR = sh(returnStdout: true, script: '''
                 python3 scripts/form_pr.py open --branch "$FW_BRANCH" --body-file ../pr_body.md \
-                  --title "Firewall change for $FW_NAME ($FW_IP) via Jenkins form #$BUILD_NUMBER" --reviewers "$FW_REVIEWERS"
+                  --title "$FW_TITLE ($JOB_NAME #$BUILD_NUMBER)" --reviewers "$FW_REVIEWERS"
               ''').trim()
             }
             echo "Pull request: https://github.com/${REPO}/pull/${env.FW_PR} (review requested from ${env.FW_REVIEWERS})"
@@ -268,7 +279,7 @@ ${plan}
                   withGitHub(REPO) {
                     rc = sh(returnStatus: true, script: '''
                       python3 scripts/form_pr.py check --pr "$FW_PR" --require "$FW_REVIEWERS" --merge-sha-file ../merge_sha.txt \
-                        --message "Merged by Jenkins client-firewall-form after approval.
+                        --message "Merged by Jenkins $JOB_NAME after approval.
 
 Fw-Form-Build: $BUILD_URL" > ../check.txt 2>&1
                     ''')
@@ -292,6 +303,7 @@ Fw-Form-Build: $BUILD_URL" > ../check.txt 2>&1
       agent { label 'ansible' }
       steps {
         script {
+          env.FW_TAG = "${JOB_SLUG}-${env.BUILD_NUMBER}"
           try {
             dir('repo') {
               gitAuth('fetch -q origin main')
@@ -316,9 +328,9 @@ Fw-Form-Build: $BUILD_URL" > ../check.txt 2>&1
               if (env.FW_OTHERS) {
                 echo "Not tagging: ${env.FW_OTHERS} still have undeployed changes."
               } else {
-                sh 'git -c user.name=pi-jenkins -c user.email=jenkins@pi-dc.local tag -a "deployed-form-$BUILD_NUMBER" -m "Applied to $FW_NAME (requested by $FW_REQUESTER, PR #$FW_PR) in $BUILD_URL"'
-                gitAuth('push -q origin "deployed-form-$BUILD_NUMBER"')
-                echo "Tagged deployed-form-${env.BUILD_NUMBER}."
+                sh 'git -c user.name=pi-jenkins -c user.email=jenkins@pi-dc.local tag -a "deployed-$FW_TAG" -m "Applied to $FW_NAME (requested by $FW_REQUESTER, PR #$FW_PR) in $BUILD_URL"'
+                gitAuth('push -q origin "deployed-$FW_TAG"')
+                echo "Tagged deployed-${env.FW_TAG}."
               }
             }
           } catch (e) {
@@ -351,7 +363,7 @@ Fw-Form-Build: $BUILD_URL" > ../check.txt 2>&1
               git -c user.name=pi-jenkins -c user.email=jenkins@pi-dc.local revert --no-edit -m 1 "$FW_MERGE_SHA" &&
               git -c user.name=pi-jenkins -c user.email=jenkins@pi-dc.local commit -q --amend -m "Revert PR #$FW_PR: applying it to $FW_NAME failed
 
-Rolled back by Jenkins client-firewall-form.
+Rolled back by Jenkins $JOB_NAME.
 
 Fw-Form-Build: $BUILD_URL"
             ''')

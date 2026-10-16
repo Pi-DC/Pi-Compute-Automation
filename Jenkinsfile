@@ -12,7 +12,7 @@ def JENKINS_APPROVER = 'Pi-Compute'                        // Jenkins user ID(s)
 // ------------------------------------------------------------------------------------------
 
 // Shared credentials, plus the Jenkins credential of every host in FW_HOSTS that names one in
-// inventory/hosts.yml (fw_cred_id, set by the client-firewall form job). The inventory reads them
+// inventory/hosts.yml (fw_cred_id, set by the firewall form jobs). The inventory reads them
 // from FWCRED_<HOST>_USER / FWCRED_<HOST>_PASS, so no password is ever stored in git.
 def withFwCreds(Closure body) {
   def creds = [
@@ -49,7 +49,7 @@ pipeline {
 
     stage('Lint') {
       steps {
-        sh 'yamllint . && ansible-lint playbooks roles && bash scripts/no_package_installs.sh'
+        sh 'yamllint . && ansible-lint playbooks roles && bash scripts/no_package_installs.sh && python3 scripts/form_jobs.py --check'
       }
     }
 
@@ -63,11 +63,11 @@ pipeline {
         archiveArtifacts artifacts: 'plans/**', allowEmptyArchive: true
         script {
           env.FW_HOSTS = fileExists('plans/hosts.txt') ? readFile('plans/hosts.txt').trim().replace('\n', ',') : ''
-          // Changes from the client-firewall form job (its merge or revert commit, or a form/* PR merged by
+          // Changes from a firewall form job (its merge or revert commit, or a form/* PR merged by
           // hand: trailer on the merged commit HEAD^2) are approved and applied by that job.
           def formBuild = sh(returnStdout: true, script: "{ git log -1 --format=%B HEAD; git log -1 --format=%B HEAD^2 2>/dev/null || true; } | sed -n 's/^Fw-Form-Build: //p' | head -1").trim()
           if (env.BRANCH_NAME == 'main' && formBuild) {
-            echo "Change made by the client-firewall form job (${formBuild}); it approved and applied it there."
+            echo "Change made by a firewall form job (${formBuild}); it was approved and applied there."
             env.FW_HOSTS = ''
           }
           echo(env.FW_HOSTS ? "Hosts to change: ${env.FW_HOSTS}" : 'No firewall changes in this build.')

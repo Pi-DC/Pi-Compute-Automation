@@ -2,9 +2,14 @@
 """Apply a Jenkins form request to inventory/hosts.yml and host_vars/<name>.yml.
 
 Usage:
-  form_change.py --name client01 --ip 172.20.119.111 --os Ubuntu-24 \
-                 --ssh-port 22 --rdp-port 3389 --cred-id client-client01 \
-                 --add rules_add.txt --remove rules_remove.txt
+  form_change.py --family linux --name client01 --ip 172.20.119.111 --os Ubuntu-24 \
+                 --ssh-port 22 --cred-id client-client01 --add rules_add.txt
+  form_change.py --family linux --name client01 --ip 172.20.119.111 --existing \
+                 --cred-id client-client01 --remove rules_remove.txt
+
+--family: the Jenkins job's OS family; a client of the other family is refused.
+--os / --ssh-port / --rdp-port left out: keep the client's current values (a new client needs --os).
+--existing: the client must already be in the inventory with this IP (the Remove jobs).
 
 Rule files: one rule per line, blank lines and lines starting with # are ignored.
   SOURCE DESTINATION PORTS [PROTO] [COMMENT...]
@@ -110,9 +115,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--name", required=True)
     ap.add_argument("--ip", required=True)
-    ap.add_argument("--os", required=True, choices=OS_TYPES)
-    ap.add_argument("--ssh-port", default="22")
-    ap.add_argument("--rdp-port", default="3389")
+    ap.add_argument("--family", required=True, choices=["linux", "windows"])
+    ap.add_argument("--os", choices=OS_TYPES)
+    ap.add_argument("--ssh-port")
+    ap.add_argument("--rdp-port")
+    ap.add_argument("--existing", action="store_true")
     ap.add_argument("--cred-id", required=True)
     ap.add_argument("--add")
     ap.add_argument("--remove")
@@ -125,10 +132,7 @@ def main():
     ip = check_addr(a.ip.strip(), "client IP")
     if ip == "any" or "/" in ip:
         fail(f"client IP {a.ip!r} must be a single IP address")
-    group = "windows" if a.os.startswith("Windows") else "linux"
-    ssh_port, rdp_port = check_port(a.ssh_port.strip(), "SSH port"), check_port(a.rdp_port.strip(), "RDP port")
-    if not isinstance(ssh_port, int) or not isinstance(rdp_port, int):
-        fail("SSH and RDP ports must be single ports")
+    group = a.family
 
     # ---- inventory -------------------------------------------------------------------------
     header, inv = split_header(HOSTS_FILE)
@@ -145,11 +149,26 @@ def main():
             if h != name and (hv or {}).get("ansible_host") == ip:
                 fail(f"IP {ip} is already used by host {h!r} in group {g}")
     old_group = next((g for g, grp in children.items() if name in (grp.get("hosts") or {})), None)
-    hostvars = dict(children[old_group]["hosts"].pop(name) or {}) if old_group else {}
     if old_group and old_group != group:
-        print(f"NOTE: {name} moves from group {old_group} to {group}")
+        fail(f"{name} is a {old_group} client: use the {old_group.capitalize()} jobs")
+    if a.existing and not old_group:
+        fail(f"{name} is not a known client: add it with the {group.capitalize()} Open job first")
+    hostvars = dict(children[old_group]["hosts"].pop(name) or {}) if old_group else {}
+    if a.existing and hostvars.get("ansible_host") != ip:
+        fail(f"{name} has IP {hostvars.get('ansible_host')} in the inventory, not {ip}")
+
+    os_type = a.os or hostvars.get("os_baseline")
+    if not os_type:
+        fail(f"{name} is a new client: choose its OS")
+    if (group == "windows") != os_type.startswith("Windows"):
+        fail(f"OS {os_type} is not a {group} OS")
+    ssh_port = check_port(str(a.ssh_port or hostvars.get("fw_ssh_port") or 22).strip(), "SSH port")
+    rdp_port = check_port(str(a.rdp_port or hostvars.get("fw_rdp_port") or 3389).strip(), "RDP port")
+    if not isinstance(ssh_port, int) or not isinstance(rdp_port, int):
+        fail("SSH and RDP ports must be single ports")
+
     env = cred_env(name)
-    hostvars.update({"ansible_host": ip, "os_baseline": a.os, "fw_cred_id": a.cred_id,
+    hostvars.update({"ansible_host": ip, "os_baseline": os_type, "fw_cred_id": a.cred_id,
                      "ansible_user": f'{{{{ lookup("env", "{env}_USER") }}}}',
                      "ansible_password": f'{{{{ lookup("env", "{env}_PASS") }}}}'})
     for k in ("ansible_port", "fw_ssh_port", "fw_rdp_port", "ansible_become_password"):
