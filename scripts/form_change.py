@@ -24,7 +24,7 @@ import sys
 
 import yaml
 
-OS_TYPES = ["Ubuntu-22", "Ubuntu-24", "RedHat-9", "Windows-2019", "Windows-2022"]
+OS_TYPES = ["Ubuntu-22", "Ubuntu-24", "RedHat-9", "CentOS-7", "Windows-2019", "Windows-2022"]
 HOSTS_FILE = "inventory/hosts.yml"
 
 

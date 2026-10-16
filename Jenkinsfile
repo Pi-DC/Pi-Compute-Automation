@@ -49,7 +49,7 @@ pipeline {
 
     stage('Lint') {
       steps {
-        sh 'yamllint . && ansible-lint playbooks roles'
+        sh 'yamllint . && ansible-lint playbooks roles && bash scripts/no_package_installs.sh'
       }
     }
 
@@ -79,7 +79,7 @@ pipeline {
       when { expression { env.FW_HOSTS } }
       steps {
         withFwCreds {
-          sh 'ansible-playbook playbooks/firewall_service.yml --private-key "$SSH_KEY" -l "$FW_HOSTS" -e fw_service_mode=check'
+          sh 'bash scripts/run-playbook.sh playbooks/firewall_service.yml "$FW_HOSTS" --private-key "$SSH_KEY" -e fw_service_mode=check'
         }
       }
     }
@@ -88,7 +88,7 @@ pipeline {
       when { allOf { changeRequest(); expression { env.FW_HOSTS } } }
       steps {
         withFwCreds {
-          sh 'ansible-playbook playbooks/firewall.yml --private-key "$SSH_KEY" -l "$FW_HOSTS" --check --diff'
+          sh 'bash scripts/run-playbook.sh playbooks/firewall.yml "$FW_HOSTS" --private-key "$SSH_KEY" --check --diff'
         }
       }
     }
@@ -125,7 +125,7 @@ pipeline {
       when { allOf { branch 'main'; expression { env.FW_HOSTS } } }
       steps {
         withFwCreds {
-          sh 'ANSIBLE_LOG_PATH=apply.log ansible-playbook playbooks/firewall_service.yml --private-key "$SSH_KEY" -l "$FW_HOSTS" -e fw_service_mode=ensure'
+          sh 'ANSIBLE_LOG_PATH=apply.log bash scripts/run-playbook.sh playbooks/firewall_service.yml "$FW_HOSTS" --private-key "$SSH_KEY" -e fw_service_mode=ensure'
         }
       }
     }
@@ -134,7 +134,7 @@ pipeline {
       when { allOf { branch 'main'; expression { env.FW_HOSTS } } }
       steps {
         withFwCreds {
-          sh 'ANSIBLE_LOG_PATH=apply.log ansible-playbook playbooks/firewall.yml --private-key "$SSH_KEY" -l "$FW_HOSTS"'
+          sh 'ANSIBLE_LOG_PATH=apply.log bash scripts/run-playbook.sh playbooks/firewall.yml "$FW_HOSTS" --private-key "$SSH_KEY"'
         }
         withCredentials([usernamePassword(credentialsId: 'github-app-fw', usernameVariable: 'GH_APP', passwordVariable: 'GH_TOKEN')]) {
           withEnv(["GITHUB_REPOSITORY=${REPO}"]) {

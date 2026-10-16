@@ -1,0 +1,14 @@
+---
+# Collections for the older Ansible (ansible-core 2.16, /opt/ansible-el7 on pi-jenkins-agent) that manages
+# CentOS 7 hosts: their Python 2.7 is not supported by ansible-core 2.17 or later.
+# These are the last versions that still run on ansible-core 2.16. Installed into ./collections-el7 by
+# scripts/run-playbook.sh. Upgrade deliberately, through a PR.
+collections:
+  - name: community.general
+    version: "10.7.5"
+  - name: ansible.posix
+    version: "1.6.2"
+  - name: ansible.windows
+    version: "2.8.0"
+  - name: community.windows
+    version: "2.4.0"

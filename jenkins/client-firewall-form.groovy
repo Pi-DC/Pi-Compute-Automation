@@ -64,7 +64,7 @@ pipeline {
   parameters {
     string(name: 'CLIENT_IP', trim: true, description: 'IP address of the client system, e.g. 172.20.119.111')
     string(name: 'CLIENT_NAME', trim: true, description: 'Optional short name (lowercase, digits, -). Empty = client-&lt;IP with dashes&gt;. Use the same name every time for the same client.')
-    choice(name: 'OS_TYPE', choices: ['Ubuntu-24', 'Ubuntu-22', 'RedHat-9', 'Windows-2022', 'Windows-2019'], description: 'Operating system of the client')
+    choice(name: 'OS_TYPE', choices: ['Ubuntu-24', 'Ubuntu-22', 'RedHat-9', 'CentOS-7', 'Windows-2022', 'Windows-2019'], description: 'Operating system of the client')
     string(name: 'CLIENT_USERNAME', trim: true, description: 'Login user. Linux: SSH user with sudo. Windows: local or DOMAIN\\user admin for WinRM. Empty with empty password = keep the saved login.')
     password(name: 'CLIENT_PASSWORD', defaultValue: '', description: 'Password for that user. Saved only in Jenkins (credential client-&lt;name&gt;), never in git. Empty = keep the saved one.')
     string(name: 'SSH_PORT', defaultValue: '22', trim: true, description: 'Linux: port the SSH server listens on (Ansible connects here; always allowed from the management network). Ignored for Windows.')
@@ -147,7 +147,7 @@ Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>''')
       steps {
         dir('repo') {
           sh 'ansible-galaxy collection install -r collections/requirements.yml -p ./collections'
-          sh 'yamllint . && ansible-lint playbooks roles'
+          sh 'yamllint . && ansible-lint playbooks roles && bash scripts/no_package_installs.sh'
         }
       }
     }
@@ -202,7 +202,7 @@ Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>''')
       steps {
         dir('repo') {
           withClientCreds {
-            sh 'ansible-playbook playbooks/firewall_service.yml --private-key "$SSH_KEY" -l "$FW_NAME" -e fw_service_mode=check'
+            sh 'bash scripts/run-playbook.sh playbooks/firewall_service.yml "$FW_NAME" --private-key "$SSH_KEY" -e fw_service_mode=check'
           }
         }
       }
@@ -213,7 +213,7 @@ Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>''')
       steps {
         dir('repo') {
           withClientCreds {
-            sh 'ansible-playbook playbooks/firewall.yml --private-key "$SSH_KEY" -l "$FW_NAME" --check --diff'
+            sh 'bash scripts/run-playbook.sh playbooks/firewall.yml "$FW_NAME" --private-key "$SSH_KEY" --check --diff'
           }
         }
       }
@@ -241,7 +241,7 @@ Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>''')
       steps {
         dir('repo') {
           withClientCreds {
-            sh 'ANSIBLE_LOG_PATH=apply.log ansible-playbook playbooks/firewall_service.yml --private-key "$SSH_KEY" -l "$FW_NAME" -e fw_service_mode=ensure'
+            sh 'ANSIBLE_LOG_PATH=apply.log bash scripts/run-playbook.sh playbooks/firewall_service.yml "$FW_NAME" --private-key "$SSH_KEY" -e fw_service_mode=ensure'
           }
         }
       }
@@ -267,7 +267,7 @@ Example: <code>172.20.120.0/24 any 80,443 tcp Web from app subnet</code>''')
       steps {
         dir('repo') {
           withClientCreds {
-            sh 'ANSIBLE_LOG_PATH=apply.log ansible-playbook playbooks/firewall.yml --private-key "$SSH_KEY" -l "$FW_NAME"'
+            sh 'ANSIBLE_LOG_PATH=apply.log bash scripts/run-playbook.sh playbooks/firewall.yml "$FW_NAME" --private-key "$SSH_KEY"'
           }
           script {
             if (env.FW_OTHERS) {
