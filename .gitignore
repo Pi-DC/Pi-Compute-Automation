@@ -1,6 +1,7 @@
 plans/
 prev/
 collections/ansible_collections/
+collections-el7/
 apply.log
 *.retry
 __pycache__/

@@ -2,6 +2,7 @@
 extends: default
 ignore: |
   collections/ansible_collections/
+  collections-el7/
   plans/
   prev/
 rules:

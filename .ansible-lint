@@ -2,5 +2,6 @@
 profile: production
 exclude_paths:
   - collections/ansible_collections/
+  - collections-el7/
   - plans/
   - prev/

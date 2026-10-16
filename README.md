@@ -1,6 +1,6 @@
 # os-firewall-automation (Pi-DC)
 
-OS firewall rules for client VMs, managed as code. Linux: UFW (Ubuntu) / firewalld (RHEL). Windows: Defender Firewall.
+OS firewall rules for client VMs, managed as code. Linux: UFW (Ubuntu) / firewalld (RHEL, CentOS 7). Windows: Defender Firewall.
 
 ## How a change flows
 
@@ -37,6 +37,7 @@ commits with that trailer, because the form job already approved and applied the
 | `scripts/plan.sh`, `scripts/fw_diff.py` | Work out adds/removes since the last deploy |
 | `scripts/approval_check.py` | Refuses to apply unapproved changes |
 | `scripts/form_change.py` | Writes a Jenkins form request into the inventory and host_vars |
+| `scripts/run-playbook.sh` | Runs a playbook on the given hosts; CentOS 7 hosts with the older Ansible (below) |
 | `jenkins/client-firewall-form.groovy` | Pipeline of the `client-firewall-form` job |
 | `playbooks/firewall.yml` | Applies the planned rule changes |
 | `playbooks/firewall_service.yml` | Checks (`fw_service_mode=check`) or enables + starts (`ensure`) the firewall itself |
@@ -51,5 +52,16 @@ fw_rules:
 ```
 
 `dst` (optional, default `any`) limits the rule to one destination address of the client.
+
+## CentOS 7 hosts
+
+CentOS 7 has only Python 2.7, which ansible-core 2.17 and later cannot manage. `scripts/run-playbook.sh`
+runs hosts with `os_baseline: CentOS-7` with ansible-core 2.16 from `/opt/ansible-el7` on pi-jenkins-agent,
+the collections pinned in `collections/requirements-el7.yml` and `/usr/bin/python` (it has the firewalld
+bindings). All other hosts use the normal Ansible. Lint always runs with the normal Ansible.
+
+Set up on the agent once: `python3 -m venv /opt/ansible-el7 && /opt/ansible-el7/bin/pip install ansible-core==2.16.14 pyyaml`.
+CentOS 7 is end-of-life (no security updates since June 2024): replace these hosts when you can, then
+delete the venv, this section, the wrapper's legacy branch and `requirements-el7.yml`.
 
 Rollback: revert the PR in GitHub and merge the revert through the same approval.

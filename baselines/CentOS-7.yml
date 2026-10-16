@@ -1,0 +1,5 @@
+---
+# Day-1 rules for every CentOS 7 host (in addition to its host_vars file).
+# Changing this file changes ALL CentOS 7 hosts. Keep it small.
+# CentOS 7 hosts are managed with the older Ansible: see scripts/run-playbook.sh.
+fw_rules: []
