@@ -47,9 +47,9 @@ def params(family, action):
         p.append(("choice", "OS_TYPE", None, "Operating system of the client (must match the inventory for a known client)", OS_CHOICES[family]))
     who = "SSH user with sudo" if family == "linux" else "local or DOMAIN\\user admin for WinRM"
     p += [
-        ("string", "CLIENT_USERNAME", "", f"Login user ({who}). Empty with empty password = use the saved login.", None),
-        ("password", "CLIENT_PASSWORD", "", "Password for that user. Tested in Stage 2, then saved only in Jenkins "
-         "(credential client-&lt;name&gt;), never in git. Empty = use the saved one.", None),
+        ("string", "CLIENT_USERNAME", "", f"Required: login user ({who}).", None),
+        ("password", "CLIENT_PASSWORD", "", "Required: password for that user. Used only while this build runs: "
+         "never in git, and deleted from Jenkins when the build ends (it is not kept with the build either).", None),
     ]
     if action == "open" and family == "linux":
         p.append(("string", "SSH_PORT", "", "Port the SSH server listens on; Ansible connects here. "

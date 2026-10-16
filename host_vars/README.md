@@ -24,4 +24,5 @@ fw_rules:
   Plan refuses a change unless some rule lets the Jenkins agent 172.20.119.105 reach the host's SSH port
   (`fw_ssh_port` in `inventory/hosts.yml`, default 22) or, on Windows, WinRM 5986.
 - Hosts added by the Jenkins form also carry `fw_cred_id` and read their login from `FWCRED_<HOST>_USER` /
-  `FWCRED_<HOST>_PASS`, which the pipelines fill from that Jenkins credential.
+  `FWCRED_<HOST>_PASS`, which the pipelines fill from that Jenkins credential. It exists only while a form
+  job for that host runs (no password is kept in Jenkins), so change these hosts through the form jobs.

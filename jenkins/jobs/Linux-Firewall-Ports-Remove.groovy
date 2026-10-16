@@ -53,6 +53,31 @@ def deleteLogin(String id) {
   if (old) { SystemCredentialsProvider.getInstance().getStore().removeCredentials(Domain.global(), old) }
 }
 
+// No password is kept in Jenkins after a build: the client login exists only while the build that
+// created it runs (its description names that build), and the build's own password parameter is blanked.
+@NonCPS
+def loginOwner(String id) {
+  def m = (findLogin(id)?.description ?: '') =~ /In use by (.+) #(\d+) /
+  return m.find() ? [m.group(1), m.group(2) as int] : null
+}
+
+@NonCPS
+def isRunning(String job, int number) {
+  Jenkins.get().getItemByFullName(job)?.getBuildByNumber(number)?.isBuilding() ?: false
+}
+
+@NonCPS
+def forgetPassword(build) {
+  def pa = build.getAction(hudson.model.ParametersAction)
+  if (!pa) { return }
+  def values = []
+  for (v in pa.getAllParameters()) {
+    values << (v instanceof hudson.model.PasswordParameterValue ? new hudson.model.PasswordParameterValue(v.name, '', v.description) : v)
+  }
+  build.replaceAction(new hudson.model.ParametersAction(values))
+  build.save()
+}
+
 @NonCPS
 def plainText(value) {
   value instanceof hudson.util.Secret ? value.getPlainText() : (value ?: '').toString()
@@ -70,13 +95,12 @@ def withGitHub(String repo, Closure body) {
   }
 }
 
-// The client's login is bound to FWCRED_<NAME>_USER/_PASS, which the inventory reads.
-// env.FW_LOGIN_ID is the credential to use: a pending one while Stage 2 tests new details.
+// The client's login (this build's temporary credential client-<name>) is bound to FWCRED_<NAME>_USER/_PASS,
+// which the inventory reads. No SSH key is used on or installed in any client.
 def withClientCreds(Closure body) {
   withCredentials([
-    sshUserPrivateKey(credentialsId: 'ansible-ssh-key', keyFileVariable: 'SSH_KEY'),
     usernamePassword(credentialsId: 'ansible-win-cred', usernameVariable: 'WIN_USER', passwordVariable: 'WIN_PASS'),
-    usernamePassword(credentialsId: env.FW_LOGIN_ID, usernameVariable: "${env.FW_CRED_ENV}_USER", passwordVariable: "${env.FW_CRED_ENV}_PASS")
+    usernamePassword(credentialsId: env.FW_CRED_ID, usernameVariable: "${env.FW_CRED_ENV}_USER", passwordVariable: "${env.FW_CRED_ENV}_PASS")
   ]) { body() }
 }
 
@@ -91,8 +115,8 @@ pipeline {
   parameters {
     string(name: 'CLIENT_IP', defaultValue: '', trim: true, description: 'IP address of the client (as in the inventory)')
     string(name: 'CLIENT_NAME', defaultValue: '', trim: true, description: 'Name of the client as in the inventory. Empty = client-&lt;IP with dashes&gt;.')
-    string(name: 'CLIENT_USERNAME', defaultValue: '', trim: true, description: 'Login user (SSH user with sudo). Empty with empty password = use the saved login.')
-    password(name: 'CLIENT_PASSWORD', defaultValue: '', description: 'Password for that user. Tested in Stage 2, then saved only in Jenkins (credential client-&lt;name&gt;), never in git. Empty = use the saved one.')
+    string(name: 'CLIENT_USERNAME', defaultValue: '', trim: true, description: 'Required: login user (SSH user with sudo).')
+    password(name: 'CLIENT_PASSWORD', defaultValue: '', description: 'Required: password for that user. Used only while this build runs: never in git, and deleted from Jenkins when the build ends (it is not kept with the build either).')
     text(name: 'RULES_REMOVE', defaultValue: '', description: 'Firewall rules to REMOVE (each must exist on this client). One rule per line: <code>SOURCE  DESTINATION  PORTS  [tcp|udp]  [comment]</code><br>SOURCE / DESTINATION = <code>any</code>, an IP or a CIDR. PORTS = <code>443</code>, <code>8000-8010</code> or <code>80,443</code>. Protocol defaults to tcp.<br>Example: <code>172.20.120.0/24 any 443 tcp</code><br>Removing the last rule that lets the Jenkins agent 172.20.119.105 reach its SSH port is refused at Plan.')
     string(name: 'REVIEWERS', defaultValue: '', trim: true, description: 'Optional: more GitHub users to review the pull request, comma-separated. Pi-KiranRaja is always asked. Every reviewer must approve before the merge.')
   }
@@ -122,12 +146,12 @@ pipeline {
           }
           env.FW_REVIEWERS = reviewers.join(',')
 
-          def user = params.CLIENT_USERNAME ?: ''
-          def pass = plainText(params.CLIENT_PASSWORD)
-          if (pass && !user) { error 'Enter CLIENT_USERNAME together with CLIENT_PASSWORD' }
-          if (user && !pass) { error 'CLIENT_USERNAME given without CLIENT_PASSWORD: enter both to change the saved login, or neither to keep it' }
-          if (!pass && !findLogin(env.FW_CRED_ID)) { error "No saved login for ${name}: enter CLIENT_USERNAME and CLIENT_PASSWORD" }
-          env.FW_NEW_LOGIN = pass ? 'yes' : ''
+          // No login is kept between builds: enter it every time.
+          if (!params.CLIENT_USERNAME || !plainText(params.CLIENT_PASSWORD)) { error 'Enter CLIENT_USERNAME and CLIENT_PASSWORD (no login is kept in Jenkins between builds)' }
+          def owner = loginOwner(env.FW_CRED_ID)
+          if (owner && isRunning(owner[0], owner[1]) && !(owner[0] == env.JOB_NAME && owner[1] == (env.BUILD_NUMBER as int))) {
+            error "${name} is being changed by ${owner[0]} #${owner[1]}: run this again when that build has finished."
+          }
 
           def rules = (JOB_ACTION == 'open' ? params.RULES_ADD : params.RULES_REMOVE) ?: ''
           def ruleLines = 0
@@ -208,31 +232,23 @@ pipeline {
         '''
         dir('repo') {
           script {
-            // New details are tested under a pending credential and replace the saved login only if they work.
-            env.FW_LOGIN_ID = env.FW_CRED_ID
-            if (env.FW_NEW_LOGIN) {
-              env.FW_LOGIN_ID = "${env.FW_CRED_ID}-pending-${JOB_SLUG}-${env.BUILD_NUMBER}"
-              saveLogin(env.FW_LOGIN_ID, params.CLIENT_USERNAME, plainText(params.CLIENT_PASSWORD), "Being tested by ${env.BUILD_URL}")
-            }
+            // Temporary: deleted when this build ends (post), whatever its result. The PR build of this
+            // change uses it too, while Stage 4 waits for it.
+            saveLogin(env.FW_CRED_ID, params.CLIENT_USERNAME, plainText(params.CLIENT_PASSWORD),
+              "In use by ${env.JOB_NAME} #${env.BUILD_NUMBER} (${env.BUILD_URL}); deleted when that build ends")
+            env.FW_LOGIN_SAVED = 'yes'
             try {
               withClientCreds {
                 // A fresh SSH connection: a reused one (ControlPersist) would pass without checking the password.
-                sh 'ANSIBLE_SSH_ARGS="-C -o ControlMaster=no -o ControlPath=none" bash scripts/run-playbook.sh playbooks/login_check.yml "$FW_NAME" --private-key "$SSH_KEY"'
+                sh 'ANSIBLE_SSH_ARGS="-C -o ControlMaster=no -o ControlPath=none" bash scripts/run-playbook.sh playbooks/login_check.yml "$FW_NAME"'
               }
             } catch (e) {
-              error "Login to ${env.FW_NAME} (${env.FW_IP}) failed with ${env.FW_NEW_LOGIN ? 'the details entered' : 'the saved login'} (see above). Nothing was changed."
-            } finally {
-              if (env.FW_NEW_LOGIN) { deleteLogin(env.FW_LOGIN_ID) }
+              error "Login to ${env.FW_NAME} (${env.FW_IP}) as ${params.CLIENT_USERNAME} failed (see above). Nothing was changed."
             }
-            if (env.FW_NEW_LOGIN) {
-              def how = saveLogin(env.FW_CRED_ID, params.CLIENT_USERNAME, plainText(params.CLIENT_PASSWORD),
-                "Login for client ${env.FW_NAME} (${env.FW_IP}), set by ${env.FW_REQUESTER} in build ${env.BUILD_NUMBER}")
-              echo "Login works: ${how} Jenkins credential '${env.FW_CRED_ID}' (user ${params.CLIENT_USERNAME})."
-            }
-            env.FW_LOGIN_ID = env.FW_CRED_ID
+            echo "Login works (user ${params.CLIENT_USERNAME}). It is kept only until this build ends."
           }
           withClientCreds {
-            sh 'bash scripts/run-playbook.sh playbooks/firewall_service.yml "$FW_NAME" --private-key "$SSH_KEY" -e fw_service_mode=check'
+            sh 'bash scripts/run-playbook.sh playbooks/firewall_service.yml "$FW_NAME" -e fw_service_mode=check'
           }
         }
       }
@@ -243,7 +259,7 @@ pipeline {
       steps {
         dir('repo') {
           withClientCreds {
-            sh 'bash scripts/run-playbook.sh playbooks/firewall.yml "$FW_NAME" --private-key "$SSH_KEY" --check --diff'
+            sh 'bash scripts/run-playbook.sh playbooks/firewall.yml "$FW_NAME" --check --diff'
           }
           script {
             env.FW_BRANCH = "form/${JOB_SLUG}-${env.FW_NAME}-${env.BUILD_NUMBER}"
@@ -328,8 +344,8 @@ Fw-Form-Build: $BUILD_URL" > ../check.txt 2>&1
                      'This build changes only ' + env.FW_NAME + '; deploy the others through the os-firewall main build.'
               }
               withClientCreds {
-                sh 'ANSIBLE_LOG_PATH=apply.log bash scripts/run-playbook.sh playbooks/firewall_service.yml "$FW_NAME" --private-key "$SSH_KEY" -e fw_service_mode=ensure'
-                sh 'ANSIBLE_LOG_PATH=apply.log bash scripts/run-playbook.sh playbooks/firewall.yml "$FW_NAME" --private-key "$SSH_KEY"'
+                sh 'ANSIBLE_LOG_PATH=apply.log bash scripts/run-playbook.sh playbooks/firewall_service.yml "$FW_NAME" -e fw_service_mode=ensure'
+                sh 'ANSIBLE_LOG_PATH=apply.log bash scripts/run-playbook.sh playbooks/firewall.yml "$FW_NAME"'
               }
               if (env.FW_OTHERS) {
                 echo "Not tagging: ${env.FW_OTHERS} still have undeployed changes."
@@ -388,7 +404,7 @@ Fw-Form-Build: $BUILD_URL"
             } else if (fileExists('plans/hosts.txt')) {
               archiveArtifacts artifacts: 'plans/**', allowEmptyArchive: true
               withClientCreds {
-                rc = sh(returnStatus: true, script: 'ANSIBLE_LOG_PATH=apply.log bash scripts/run-playbook.sh playbooks/firewall.yml "$FW_NAME" --private-key "$SSH_KEY"')
+                rc = sh(returnStatus: true, script: 'ANSIBLE_LOG_PATH=apply.log bash scripts/run-playbook.sh playbooks/firewall.yml "$FW_NAME"')
               }
               if (rc != 0) { problems << "applying the old rules to ${env.FW_NAME} failed (see above)" }
             }
@@ -420,6 +436,13 @@ Fw-Form-Build: $BUILD_URL"
     }
     always {
       script {
+        // No password stays in Jenkins: delete this build's client login, blank its password parameter.
+        if (env.FW_LOGIN_SAVED) {
+          def owner = loginOwner(env.FW_CRED_ID)
+          if (owner && owner[0] == env.JOB_NAME && owner[1] == (env.BUILD_NUMBER as int)) { deleteLogin(env.FW_CRED_ID) }
+        }
+        forgetPassword(currentBuild.rawBuild)
+        echo 'Client login deleted from Jenkins; the password is not kept with this build.'
         node('ansible') {
           archiveArtifacts artifacts: 'repo/apply.log', allowEmptyArchive: true
           deleteDir()
