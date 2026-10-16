@@ -53,7 +53,7 @@ def main():
 
     if a.cmd == "open":
         with open(a.body_file) as f:
-            ok, pr = call("POST", f"/repos/{REPO}/pulls", {"title": a.title, "head": a.branch, "base": "main", "body": f.read()})
+            ok, pr = call("POST", f"/repos/{REPO}/pulls", {"title": a.title, "head": a.branch, "base": "main", "body": f.read()}, retries=0)
         if not ok:
             sys.exit(f"ERROR: could not open the pull request: {pr}. The GitHub App needs 'Pull requests: Read and write'.")
         ok, res = call("POST", f"/repos/{REPO}/pulls/{pr['number']}/requested_reviewers", {"reviewers": names(a.reviewers)})
