@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Merge open pull requests that are ready. Run by the Jenkins job Pi-PR-Auto-Merge every minute.
+"""Rules for merging a pull request (pr_status) and the merge itself.
+
+Used per PR by the Jenkins job Pi-PR-Auto-Merge (via form_pr.py check), which the PR build starts when it
+succeeds, and by the form jobs. Run on its own (main) it checks every open PR once, e.g. by hand.
 
 A PR is ready (pr_status) only when all of these hold:
   1. it targets main, comes from a branch of this repo (no forks) and is not a draft,
