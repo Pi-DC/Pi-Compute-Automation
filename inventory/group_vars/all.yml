@@ -1,7 +1,13 @@
 ---
-# Management access that every client firewall always allows (protected rules).
+# No firewall rule is added by default, on Linux or Windows: every rule comes from host_vars/<host>.yml,
+# written by the Jenkins form jobs (or a pull request), plus baselines/<OS>.yml (empty).
+#
+# Ansible connects from the Jenkins agent. scripts/access_check.py (run by scripts/plan.sh) refuses any
+# change that leaves a client without a rule allowing the agent on its connection port (Linux: SSH port,
+# Windows: WinRM 5986), so Jenkins can never lock itself out.
 fw_agent_ip: 172.20.119.105          # pi-jenkins-agent
-fw_admin_subnet: 172.20.119.0/24     # subnet admins connect from (SSH/RDP to clients)
-fw_mgmt_sources:
-  - "{{ fw_agent_ip }}"
-  - "{{ fw_admin_subnet }}"
+
+# Management rules that earlier versions added on their own. Removed from a client when it is applied,
+# after its own rules, so access is never interrupted.
+fw_retired_ssh_sources: [172.20.119.105, 172.20.119.0/24]   # Linux: SSH (client's SSH port) from these
+fw_retired_windows_rules: [ANS-MGMT-WINRM, ANS-MGMT-RDP]

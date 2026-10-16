@@ -8,8 +8,8 @@
 
 Both jobs check the firewall on the hosts they change before touching rules. If it is disabled or stopped
 (UFW inactive, firewalld stopped/masked, Windows MpsSvc stopped or a profile off), stage **Enable firewall**
-allows the protected management access (SSH / WinRM / RDP), enables the firewall at boot and starts it, and
-fails the build before any rule change if that does not work.
+first adds the client's own rules, then enables the firewall at boot and starts it, and fails the build
+before any rule change if that does not work. No rule is added by default.
 
 The form jobs run their pipelines from the job configuration, not from git, because saving the client login
 as a Jenkins credential needs the Jenkins API (not allowed in the Groovy sandbox). Only Jenkins admins can

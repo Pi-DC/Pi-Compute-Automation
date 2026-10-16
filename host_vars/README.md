@@ -20,7 +20,8 @@ fw_rules:
 - Add a line = open the port on this host only.
 - Delete a line = close it on this host only.
 - Edit a line = new rule added, old rule removed.
-- SSH (`fw_ssh_port`, default 22) / WinRM 5986 / RDP (`fw_rdp_port`, default 3389) from the management
-  network are protected and are not listed here. Set those ports per host in `inventory/hosts.yml`.
+- No rule is added by default: list here every port the host needs open, including access for Jenkins.
+  Plan refuses a change unless some rule lets the Jenkins agent 172.20.119.105 reach the host's SSH port
+  (`fw_ssh_port` in `inventory/hosts.yml`, default 22) or, on Windows, WinRM 5986.
 - Hosts added by the Jenkins form also carry `fw_cred_id` and read their login from `FWCRED_<HOST>_USER` /
   `FWCRED_<HOST>_PASS`, which the pipelines fill from that Jenkins credential.

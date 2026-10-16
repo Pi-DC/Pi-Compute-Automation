@@ -1,5 +1,6 @@
 ---
-# Order: protected management rule -> close default open services -> adds -> removes
+# Order: adds -> remove retired management rules -> close default open services -> removes
+# No rule is added by default: only this host's plan (scripts/access_check.py keeps Ansible's access).
 - name: Ensure firewalld is running
   ansible.builtin.systemd:
     name: firewalld
@@ -11,21 +12,30 @@
 - name: Firewall is off, so the dry run cannot show the rule changes
   ansible.builtin.debug:
     msg: >-
-      firewalld is not running on {{ inventory_hostname }}. Stage Enable firewall starts it after Apply;
-      then the protected management SSH and {{ fw_add | default([]) | length }} add /
+      firewalld is not running on {{ inventory_hostname }}. Enabling the firewall starts it with this host's
+      rules; then {{ fw_add | default([]) | length }} add /
       {{ fw_remove | default([]) | length }} remove rule(s) from plans/{{ inventory_hostname }}.yml are applied.
   when: ansible_check_mode and fw_linux_firewalld_start is changed
 
 - name: Rules
   when: not (ansible_check_mode and fw_linux_firewalld_start is changed)
   block:
-    - name: Protected management SSH (never removable by a PR)
+    - name: Add rules
+      ansible.posix.firewalld:
+        rich_rule: "{{ fw_firewalld_rich_rule }}"
+        permanent: true
+        immediate: true
+        state: enabled
+      loop: "{{ fw_add | default([]) }}"
+
+    # After the adds: the host's own rules keep Ansible's access while these go.
+    - name: Remove retired management SSH rules
       ansible.posix.firewalld:
         rich_rule: 'rule family="ipv4" source address="{{ item }}" port port="{{ fw_ssh_port | default(22) }}" protocol="tcp" accept'
         permanent: true
         immediate: true
-        state: enabled
-      loop: "{{ fw_mgmt_sources }}"
+        state: disabled
+      loop: "{{ fw_retired_ssh_sources | default([]) }}"
 
     # Not every firewalld knows every service (CentOS 7 has no cockpit), and an unknown one is an error.
     - name: Read the services this firewalld knows
@@ -42,21 +52,9 @@
         state: disabled
       loop: "{{ ['ssh', 'cockpit'] | intersect(fw_linux_firewalld_services.stdout.split()) }}"
 
-    - name: Add rules
-      ansible.posix.firewalld:
-        rich_rule: >-
-          rule family="ipv4"{{ (' source address="' ~ item.src ~ '"') if item.src != 'any' else '' }}{{
-          (' destination address="' ~ item.dst ~ '"') if item.dst | default('any') != 'any' else '' }} port port="{{ item.port }}" protocol="{{ item.proto }}" accept
-        permanent: true
-        immediate: true
-        state: enabled
-      loop: "{{ fw_add | default([]) }}"
-
     - name: Remove rules
       ansible.posix.firewalld:
-        rich_rule: >-
-          rule family="ipv4"{{ (' source address="' ~ item.src ~ '"') if item.src != 'any' else '' }}{{
-          (' destination address="' ~ item.dst ~ '"') if item.dst | default('any') != 'any' else '' }} port port="{{ item.port }}" protocol="{{ item.proto }}" accept
+        rich_rule: "{{ fw_firewalld_rich_rule }}"
         permanent: true
         immediate: true
         state: disabled

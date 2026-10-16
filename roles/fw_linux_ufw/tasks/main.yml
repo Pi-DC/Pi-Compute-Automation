@@ -1,14 +1,6 @@
 ---
-# Order: protected management rule -> adds -> default policy + enable -> removes
-- name: Protected management SSH (never removable by a PR)
-  community.general.ufw:
-    rule: allow
-    proto: tcp
-    port: "{{ fw_ssh_port | default(22) | string }}"
-    from_ip: "{{ item }}"
-    comment: "managed-by-ansible: MGMT-SSH"
-  loop: "{{ fw_mgmt_sources }}"
-
+# Order: adds -> remove retired management rules -> default policy + enable -> removes
+# No rule is added by default: only this host's plan (scripts/access_check.py keeps Ansible's access).
 - name: Add rules
   community.general.ufw:
     rule: allow
@@ -18,6 +10,16 @@
     to_ip: "{{ item.dst | default('any') }}"
     comment: "managed-by-ansible: {{ item.comment }}"
   loop: "{{ fw_add | default([]) }}"
+
+# After the adds: the host's own rules keep Ansible's access while these go.
+- name: Remove retired management SSH rules
+  community.general.ufw:
+    rule: allow
+    proto: tcp
+    port: "{{ fw_ssh_port | default(22) | string }}"
+    from_ip: "{{ item }}"
+    delete: true
+  loop: "{{ fw_retired_ssh_sources | default([]) }}"
 
 - name: Default policies
   community.general.ufw:

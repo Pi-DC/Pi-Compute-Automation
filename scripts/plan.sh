@@ -17,6 +17,8 @@ for h in $hosts; do
   [ -n "$os" ]                || { echo "ERROR: $h has no os_baseline in inventory/hosts.yml"; exit 1; }
   [ -f "baselines/$os.yml" ]  || { echo "ERROR: baselines/$os.yml missing for $h"; exit 1; }
   [ -f "host_vars/$h.yml" ]   || { echo "ERROR: host_vars/$h.yml missing for $h"; exit 1; }
+  # No rule is added by default: the host's own rules must keep Jenkins' access to it.
+  python3 scripts/access_check.py "$h"
 
   new=("baselines/$os.yml" "host_vars/$h.yml")
   old=()

@@ -5,3 +5,10 @@ ansible_winrm_transport: ntlm
 ansible_winrm_server_cert_validation: ignore   # use 'validate' once clients have an internal CA certificate
 ansible_user: "{{ lookup('env', 'WIN_USER') }}"
 ansible_password: "{{ lookup('env', 'WIN_PASS') }}"
+
+# Name of the Windows rule for a rule item (evaluated per loop item); used by fw_windows and fw_service.
+# A destination other than "any" is part of the name, so rules that differ only in destination do not
+# overwrite each other. Every rule Ansible creates is named ANS-..., so built-in and manual rules are never touched.
+fw_windows_rule_name: >-
+  ANS-{{ item.proto | upper }}-{{ item.port }}-{{ item.src | replace('/', '_') }}{{
+  ('-TO-' ~ (item.dst | replace('/', '_'))) if item.dst | default('any') != 'any' else '' }}

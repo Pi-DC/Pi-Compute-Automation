@@ -8,7 +8,7 @@ Usage:
                  --cred-id client-client01 --remove rules_remove.txt
 
 --family: the Jenkins job's OS family; a client of the other family is refused.
---os / --ssh-port / --rdp-port left out: keep the client's current values (a new client needs --os).
+--os / --ssh-port left out: keep the client's current values (a new client needs --os; SSH port 22).
 --existing: the client must already be in the inventory with this IP (the Remove jobs).
 
 Rule files: one rule per line, blank lines and lines starting with # are ignored.
@@ -118,7 +118,6 @@ def main():
     ap.add_argument("--family", required=True, choices=["linux", "windows"])
     ap.add_argument("--os", choices=OS_TYPES)
     ap.add_argument("--ssh-port")
-    ap.add_argument("--rdp-port")
     ap.add_argument("--existing", action="store_true")
     ap.add_argument("--cred-id", required=True)
     ap.add_argument("--add")
@@ -166,9 +165,8 @@ def main():
     if (group == "windows") != os_type.startswith("Windows"):
         fail(f"OS {os_type} is not a {group} OS")
     ssh_port = check_port(str(a.ssh_port or hostvars.get("fw_ssh_port") or 22).strip(), "SSH port")
-    rdp_port = check_port(str(a.rdp_port or hostvars.get("fw_rdp_port") or 3389).strip(), "RDP port")
-    if not isinstance(ssh_port, int) or not isinstance(rdp_port, int):
-        fail("SSH and RDP ports must be single ports")
+    if not isinstance(ssh_port, int):
+        fail("the SSH port must be a single port")
 
     env = cred_env(name)
     hostvars.update({"ansible_host": ip, "os_baseline": os_type, "fw_cred_id": a.cred_id,
@@ -179,8 +177,6 @@ def main():
     if group == "linux":
         hostvars.update({"ansible_port": ssh_port, "fw_ssh_port": ssh_port,
                          "ansible_become_password": f'{{{{ lookup("env", "{env}_PASS") }}}}'})
-    else:
-        hostvars["fw_rdp_port"] = rdp_port
     children[group]["hosts"][name] = hostvars
     for g in children:
         children[g]["hosts"] = dict(sorted(children[g]["hosts"].items()))

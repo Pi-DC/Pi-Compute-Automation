@@ -5,21 +5,22 @@
     start_mode: auto
     state: started
 
-# Management WinRM / RDP first, so switching the profiles on cannot cut Ansible or the admins off.
-- name: Protected management rules (before the firewall is switched on)
+# This host's rules first (they include Ansible's WinRM access, scripts/access_check.py), so switching the
+# profiles on cannot cut Ansible off. Same rules as fw_windows "Add rules".
+- name: This host's rules, before the firewall is switched on
   community.windows.win_firewall_rule:
-    name: "{{ item.name }}"
+    name: "{{ fw_windows_rule_name }}"
+    description: "{{ item.comment }}"
     localport: "{{ item.port }}"
+    protocol: "{{ item.proto }}"
     remoteip: "{{ item.src }}"
-    protocol: tcp
+    localip: "{{ item.dst | default('any') }}"
     direction: in
     action: allow
     profiles: [domain, private, public]
     enabled: true
     state: present
-  loop:
-    - { name: ANS-MGMT-WINRM, port: 5986, src: "{{ fw_agent_ip }}" }
-    - { name: ANS-MGMT-RDP, port: "{{ fw_rdp_port | default(3389) }}", src: "{{ fw_admin_subnet }}" }
+  loop: "{{ fw_host_rules }}"
 
 - name: Switch the firewall on for all profiles
   ansible.windows.win_firewall:

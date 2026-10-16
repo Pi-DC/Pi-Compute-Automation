@@ -12,7 +12,7 @@ OS firewall rules for client VMs, managed as code. Linux: UFW (Ubuntu) / firewal
    The approver cannot be the PR author (GitHub does not allow approving your own PR).
 4. Jenkins builds `main`: checks the commit came from a PR the admin approved, then waits.
 5. Admin clicks **Apply** in Jenkins. Stage **Enable firewall** switches the firewall on (enabled at boot + running)
-   on any of those hosts where it is off, after first allowing the protected management access. Then stage
+   on any of those hosts where it is off, with that host's own rules already in place. Then stage
    **Update firewall rules**: Ansible changes only the changed rules on only the changed hosts.
 6. Jenkins tags the commit `deployed-<build>` = what is live.
 
@@ -51,7 +51,7 @@ The `main` build skips commits with the trailer `Fw-Form-Build:`, because the fo
 | `inventory/hosts.yml` | Client VMs: IP + `os_baseline` |
 | `host_vars/<host>.yml` | That host's rules (day-to-day changes) |
 | `baselines/<OS>.yml` | Rules for every host of that OS version |
-| `inventory/group_vars/all.yml` | Management IPs that are always allowed |
+| `inventory/group_vars/all.yml` | Jenkins agent IP (whose access `scripts/access_check.py` checks); no default rules |
 | `scripts/plan.sh`, `scripts/fw_diff.py` | Work out adds/removes since the last deploy |
 | `scripts/approval_check.py` | Refuses to apply unapproved changes |
 | `scripts/auto_merge.py`, `jenkins/pr-auto-merge.Jenkinsfile` | Job `pr-auto-merge`: merges green + approved PRs |
@@ -84,5 +84,14 @@ bindings). All other hosts use the normal Ansible. Lint always runs with the nor
 Set up on the agent once: `python3 -m venv /opt/ansible-el7 && /opt/ansible-el7/bin/pip install ansible-core==2.16.14 pyyaml`.
 CentOS 7 is end-of-life (no security updates since June 2024): replace these hosts when you can, then
 delete the venv, this section, the wrapper's legacy branch and `requirements-el7.yml`.
+
+## No default rules
+
+No firewall rule is added by default, on Linux or Windows: a client gets exactly the rules in its
+`host_vars/<host>.yml` (written by the Jenkins jobs) and `baselines/<OS>.yml` (empty). Because Ansible connects
+from the Jenkins agent, `scripts/access_check.py` (run by Plan) stops any change that would leave a client
+without a rule letting the agent `172.20.119.105` reach its SSH port (Linux) or WinRM 5986 (Windows); the
+error shows the rule to add. Rules that earlier versions added on their own (SSH from 172.20.119.105 and
+172.20.119.0/24; Windows `ANS-MGMT-WINRM` / `ANS-MGMT-RDP`) are removed from a client the next time it is applied.
 
 Rollback: revert the PR in GitHub and merge the revert through the same approval.

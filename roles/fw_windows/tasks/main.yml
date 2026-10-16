@@ -1,21 +1,7 @@
 ---
-# Order: protected management rules -> adds -> enable + inbound block -> removes
+# Order: adds -> remove retired management rules -> enable + inbound block -> removes
+# No rule is added by default: only this host's plan (scripts/access_check.py keeps Ansible's access).
 # Every rule Ansible creates is named ANS-..., so removals never touch built-in or manual rules.
-- name: Protected management rules (never removable by a PR)
-  community.windows.win_firewall_rule:
-    name: "{{ item.name }}"
-    localport: "{{ item.port }}"
-    remoteip: "{{ item.src }}"
-    protocol: tcp
-    direction: in
-    action: allow
-    profiles: [domain, private, public]
-    enabled: true
-    state: present
-  loop:
-    - { name: ANS-MGMT-WINRM, port: 5986, src: "{{ fw_agent_ip }}" }
-    - { name: ANS-MGMT-RDP, port: "{{ fw_rdp_port | default(3389) }}", src: "{{ fw_admin_subnet }}" }
-
 - name: Add rules
   community.windows.win_firewall_rule:
     name: "{{ fw_windows_rule_name }}"
@@ -30,6 +16,13 @@
     enabled: true
     state: present
   loop: "{{ fw_add | default([]) }}"
+
+# After the adds: the host's own rules keep Ansible's access while these go.
+- name: Remove retired management rules
+  community.windows.win_firewall_rule:
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ fw_retired_windows_rules | default([]) }}"
 
 - name: Firewall on for all profiles, inbound block
   ansible.windows.win_firewall:
