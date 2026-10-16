@@ -20,10 +20,10 @@ OUT_DIR = os.path.join(ROOT, "jenkins", "jobs")
 OS_CHOICES = {"linux": ["Ubuntu-24", "Ubuntu-22", "RedHat-9", "CentOS-7"], "windows": ["Windows-2022", "Windows-2019"]}
 
 JOBS = {
-    "Linux-Firewall-Ports-Open": ("linux", "open", "linux-open", "Open firewall ports (add rules) on a Linux client. Adds a new client if it is not known yet."),
-    "Linux-Firewall-Ports-Remove": ("linux", "remove", "linux-remove", "Remove firewall rules from a known Linux client."),
-    "Windows-Firewall-Open": ("windows", "open", "windows-open", "Open firewall ports (add rules) on a Windows client. Adds a new client if it is not known yet."),
-    "Windows-Firewall-Remove": ("windows", "remove", "windows-remove", "Remove firewall rules from a known Windows client."),
+    "Pi-Linux-Systems-OSFW-Add": ("linux", "open", "linux-open", "Open firewall ports (add rules) on a Linux client. Adds a new client if it is not known yet."),
+    "Pi-Linux-Systems-OS-FW-Remove": ("linux", "remove", "linux-remove", "Remove firewall rules from a known Linux client."),
+    "Pi-Windows-Systems-OSFW-Add": ("windows", "open", "windows-open", "Open firewall ports (add rules) on a Windows client. Adds a new client if it is not known yet."),
+    "Pi-Windows-Systems-OSFW-Remove": ("windows", "remove", "windows-remove", "Remove firewall rules from a known Windows client."),
 }
 
 # No rule is added by default: the client's rules must let the Jenkins agent reach its connection port.

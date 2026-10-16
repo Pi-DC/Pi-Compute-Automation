@@ -1,4 +1,4 @@
-// Jenkins job "pr-auto-merge" (Pipeline from SCM: this file on main).
+// Jenkins job "Pi-PR-Auto-Merge" (Pipeline from SCM: this file on main).
 // Every minute (the shortest Jenkins schedule): merge each open PR whose Jenkins PR build is SUCCESS and that an approver
 // (FW_APPROVERS in the Jenkinsfile) approved on its final commit. Rules: scripts/auto_merge.py.
 // Merging applies nothing: the os-firewall main build still waits for the Apply click.
