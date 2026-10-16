@@ -114,4 +114,7 @@ error shows the rule to add. Rules that earlier versions added on their own (SSH
   deleted at the end, whatever the result; the password parameter is blanked in the build record. Enter the
   login on every run. While one build uses a client's login, another build for that client stops in Stage 1.
 
+Pull requests other than form ones are merged by `Pi-PR-Auto-Merge`: the PR's own build starts one run for it,
+which merges about 10 seconds after the approval.
+
 Rollback: revert the PR in GitHub and merge the revert through the same approval.
